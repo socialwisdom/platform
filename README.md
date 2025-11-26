@@ -1,66 +1,15 @@
-## Foundry
+## Social Wisdom
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+Social Wisdom is an EVM-based prediction market platform designed to enable decentralized and transparent forecasting. Harness the power of blockchain technology to create, participate in, and resolve prediction markets with confidence and security.
 
-Foundry consists of:
+### Key Features
+- **Decentralized**: Operates on the Ethereum Virtual Machine (EVM) for trustless interactions.
+- **Transparent**: All transactions and outcomes are recorded on the blockchain.
+- **Secure**: Built with smart contracts to ensure fairness and immutability.
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+### Use Cases
+- Predicting market trends
+- Forecasting election outcomes
+- Crowdsourcing insights for decision-making
 
-## Documentation
-
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+Join the future of prediction markets with Social Wisdom!
