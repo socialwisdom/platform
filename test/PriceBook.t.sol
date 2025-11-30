@@ -37,7 +37,7 @@ contract PriceBookTest is Test {
 
         // Levels: [25].
         level = priceBook.createBuyOrder(25).level;
-        assertLevels(25);
+        assertLevels(25, true);
 
         // Levels: [30, 25].
         level = priceBook.createBuyOrder(30).level;
@@ -79,8 +79,9 @@ contract PriceBookTest is Test {
         Level memory level = PriceBookExt.level(priceBook, prices[0]);
 
         if (isDescending) {
-            console.log("Asserting best price: ", prices[0]);
+            console.log("Asserting best buy price: ", prices[0]);
             assertEq(priceBook.bestBuyPrice(), prices[0]);
+            assert(level.data.ty == PriceBook.OrderType.BUY);
 
             for (uint256 i = 0; i < prices.length; i++) {
                 assertEq(level.price, prices[i]);
@@ -106,8 +107,9 @@ contract PriceBookTest is Test {
                 }
             }
         } else {
-            console.log("Asserting best price: ", prices[0]);
+            console.log("Asserting best sell price: ", prices[0]);
             assertEq(priceBook.bestSellPrice(), prices[0]);
+            assert(level.data.ty == PriceBook.OrderType.SELL);
 
             for (uint256 i = 0; i < prices.length; i++) {
                 assertEq(level.price, prices[i]);
@@ -135,11 +137,26 @@ contract PriceBookTest is Test {
         }
     }
 
-    function assertLevels(uint8 i0) public view {
-        uint8[] memory prices = new uint8[](1);
-        prices[0] = i0;
+    function assertLevels(uint8 i0, bool isBuy) public view {
+        Level memory level = priceBook.level(i0);
 
-        assertLevels(prices);
+        assertEq(level.price, i0);
+
+        if (isBuy) {
+            console.log("Asserting best buy price: ", i0);
+            assertEq(priceBook.bestBuyPrice(), i0);
+            assert(level.data.ty == PriceBook.OrderType.BUY);
+        } else {
+            console.log("Asserting best sell price: ", i0);
+            assertEq(priceBook.bestSellPrice(), i0);
+            assert(level.data.ty == PriceBook.OrderType.SELL);
+        }
+
+        console.log("<< checked prev doesn't exist before :", level.price);
+        assert(!level.prev().exists());
+
+        console.log(">> checked next doesn't exist after :", level.price);
+        assert(!level.next().exists());
     }
 
     function assertLevels(uint8 i0, uint8 i1) public view {
