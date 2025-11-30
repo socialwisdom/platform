@@ -430,12 +430,15 @@ library PriceBookExt {
         internal
         returns (PriceBookTest.Order memory)
     {
+        uint256 prevVolume = level(priceBook, price).data.totalVolume;
+
         PriceBookTest.Order memory _buyOrder =
             order(priceBook, priceBook.createOrder(address(0x42), price, true, volume));
 
         require(OrderExt.isTail(_buyOrder), "PriceBookExt: created buy order is not tail");
         require(_buyOrder.level.price == price, "PriceBookExt: created buy order's level price mismatch");
         require(LevelExt.isBuy(_buyOrder.level), "PriceBookExt: created buy order's level is not a buy level");
+        require(prevVolume + volume == _buyOrder.level.data.totalVolume, "PriceBookExt: level totalVolume mismatch");
 
         return _buyOrder;
     }
@@ -448,12 +451,15 @@ library PriceBookExt {
         internal
         returns (PriceBookTest.Order memory)
     {
+        uint256 prevVolume = level(priceBook, price).data.totalVolume;
+
         PriceBookTest.Order memory _sellOrder =
             order(priceBook, priceBook.createOrder(address(0x42), price, false, volume));
 
         require(OrderExt.isTail(_sellOrder), "PriceBookExt: created sell order is not tail");
         require(_sellOrder.level.price == price, "PriceBookExt: created sell order's level price mismatch");
         require(!LevelExt.isBuy(_sellOrder.level), "PriceBookExt: created sell order's level is a buy level");
+        require(prevVolume + volume == _sellOrder.level.data.totalVolume, "PriceBookExt: level totalVolume mismatch");
 
         return _sellOrder;
     }
