@@ -26,6 +26,8 @@ contract PriceBookTest is Test {
     }
 
     function setUp() public {
+        vm.startPrank(address(0x42));
+
         priceBook = new PriceBook();
 
         assert(!priceBook.bestBuyOrder().exists());
@@ -432,8 +434,7 @@ library PriceBookExt {
     {
         uint256 prevVolume = level(priceBook, price).data.totalVolume;
 
-        PriceBookTest.Order memory _buyOrder =
-            order(priceBook, priceBook.createOrder(address(0x42), price, true, volume));
+        PriceBookTest.Order memory _buyOrder = order(priceBook, priceBook.createOrder(price, true, volume));
 
         require(OrderExt.isTail(_buyOrder), "PriceBookExt: created buy order is not tail");
         require(_buyOrder.level.price == price, "PriceBookExt: created buy order's level price mismatch");
@@ -453,8 +454,7 @@ library PriceBookExt {
     {
         uint256 prevVolume = level(priceBook, price).data.totalVolume;
 
-        PriceBookTest.Order memory _sellOrder =
-            order(priceBook, priceBook.createOrder(address(0x42), price, false, volume));
+        PriceBookTest.Order memory _sellOrder = order(priceBook, priceBook.createOrder(price, false, volume));
 
         require(OrderExt.isTail(_sellOrder), "PriceBookExt: created sell order is not tail");
         require(_sellOrder.level.price == price, "PriceBookExt: created sell order's level price mismatch");

@@ -36,14 +36,14 @@ contract PriceBook {
     uint8 public bestBuyPrice;
     uint8 public bestSellPrice;
 
-    function createOrder(address maker, uint8 price, bool isBuyOrder, uint256 volume) external returns (uint256) {
+    function createOrder(uint8 price, bool isBuyOrder, uint256 volume) external returns (uint256) {
         createPriceLevel(price, isBuyOrder);
 
         if (volume < minVolume) {
             revert BadVolume();
         }
 
-        return createOrderAtLevelUnchecked(price, maker, volume);
+        return createOrderAtLevelUnchecked(price, msg.sender, volume);
     }
 
     function createOrderAtLevelUnchecked(uint8 price, address maker, uint256 volume) internal returns (uint256) {
