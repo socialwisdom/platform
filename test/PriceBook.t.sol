@@ -26,6 +26,9 @@ contract PriceBookTest is Test {
 
     function setUp() public {
         priceBook = new PriceBook();
+
+        assert(!priceBook.bestBuyOrder().exists());
+        assert(!priceBook.bestSellOrder().exists());
     }
 
     function test_sample() public pure {
@@ -208,18 +211,20 @@ library PriceBookExt {
             orderId, level(priceBook, 0), PriceBook.Order(_maker, _volume, _prevOrder, _nextOrder), priceBook
         );
 
-        PriceBookTest.Order memory orderHead = OrderExt.head(_order);
+        if (OrderExt.exists(_order)) {
+            PriceBookTest.Order memory orderHead = OrderExt.head(_order);
 
-        for (uint8 price = 1; price < 100; price++) {
-            PriceBookTest.Level memory _level = level(priceBook, price);
+            for (uint8 price = 1; price < 100; price++) {
+                PriceBookTest.Level memory _level = level(priceBook, price);
 
-            if (!LevelExt.exists(_level)) {
-                continue;
-            }
+                if (!LevelExt.exists(_level)) {
+                    continue;
+                }
 
-            if (_level.data.headOrder == orderHead.id) {
-                _order.level = _level;
-                break;
+                if (_level.data.headOrder == orderHead.id) {
+                    _order.level = _level;
+                    break;
+                }
             }
         }
 
