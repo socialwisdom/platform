@@ -37,65 +37,100 @@ contract PriceBookTest is Test {
 
         // Levels: [25].
         level = priceBook.createBuyOrder(25).level;
-
-        assertEq(priceBook.bestBuyPrice(), 25);
         assertLevels(25);
 
         // Levels: [30, 25].
         level = priceBook.createBuyOrder(30).level;
-
-        assertEq(priceBook.bestBuyPrice(), 30);
         assertLevels(30, 25);
 
         // Levels: [30, 25, 20].
         level = priceBook.createBuyOrder(20).level;
-
-        assertEq(priceBook.bestBuyPrice(), 30);
         assertLevels(30, 25, 20);
 
         // Levels: [30, 29, 25, 20].
         level = priceBook.createBuyOrder(29).level;
-
-        assertEq(priceBook.bestBuyPrice(), 30);
         assertLevels(30, 29, 25, 20);
 
         // Levels: [30, 29, 25, 21, 20].
         level = priceBook.createBuyOrder(21).level;
-
-        assertEq(priceBook.bestBuyPrice(), 30);
         assertLevels(30, 29, 25, 21, 20);
     }
 
     function assertLevels(uint8[] memory prices) internal view {
         require(prices.length > 0, "assertLevels: prices array must not be empty");
 
+        bool isAscending = true;
+        bool isDescending = true;
+
         for (uint256 i = 1; i < prices.length; i++) {
-            require(prices[i - 1] > prices[i], "assertLevels: prices must be sorted in descending order");
-        }
-
-        Level memory level = PriceBookExt.level(priceBook, prices[0]);
-
-        for (uint256 i = 0; i < prices.length; i++) {
-            assertEq(level.price, prices[i]);
-            console.log("> price: ", level.price);
-
-            if (i < prices.length - 1) {
-                level = level.next();
+            if (prices[i - 1] < prices[i]) {
+                isDescending = false;
+            } else if (prices[i - 1] > prices[i]) {
+                isAscending = false;
             } else {
-                console.log(">> checked next doesn't exist after :", level.price);
-                assert(!level.next().exists());
+                revert("assertLevels: prices must be strictly increasing or decreasing");
             }
         }
 
-        for (uint256 i = prices.length; i > 0; i--) {
-            assertEq(level.price, prices[i - 1]);
-            console.log("< price: ", level.price);
+        require(
+            isAscending || isDescending, "assertLevels: prices must be sorted in either ascending or descending order"
+        );
 
-            if (i > 1) {
-                level = level.prev();
-            } else {
-                console.log("<< checked prev doesn't exist before :", level.price);
-                assert(!level.prev().exists());
+        Level memory level = PriceBookExt.level(priceBook, prices[0]);
+
+        if (isDescending) {
+            console.log("Asserting best price: ", prices[0]);
+            assertEq(priceBook.bestBuyPrice(), prices[0]);
+
+            for (uint256 i = 0; i < prices.length; i++) {
+                assertEq(level.price, prices[i]);
+                console.log("> price: ", level.price);
+
+                if (i < prices.length - 1) {
+                    level = level.next();
+                } else {
+                    console.log(">> checked next doesn't exist after :", level.price);
+                    assert(!level.next().exists());
+                }
+            }
+
+            for (uint256 i = prices.length; i > 0; i--) {
+                assertEq(level.price, prices[i - 1]);
+                console.log("< price: ", level.price);
+
+                if (i > 1) {
+                    level = level.prev();
+                } else {
+                    console.log("<< checked prev doesn't exist before :", level.price);
+                    assert(!level.prev().exists());
+                }
+            }
+        } else {
+            console.log("Asserting best price: ", prices[0]);
+            assertEq(priceBook.bestSellPrice(), prices[0]);
+
+            for (uint256 i = 0; i < prices.length; i++) {
+                assertEq(level.price, prices[i]);
+                console.log("< price: ", level.price);
+
+                if (i < prices.length - 1) {
+                    level = level.prev();
+                } else {
+                    console.log("<< checked prev doesn't exist before :", level.price);
+                    assert(!level.prev().exists());
+                }
+            }
+
+            for (uint256 i = prices.length; i > 0; i--) {
+                assertEq(level.price, prices[i - 1]);
+                console.log("> price: ", level.price);
+
+                if (i > 1) {
+                    level = level.next();
+                } else {
+                    console.log(">> checked next doesn't exist after :", level.price);
+                    assert(!level.next().exists());
+                }
             }
         }
     }
