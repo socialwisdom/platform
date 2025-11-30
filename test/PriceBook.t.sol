@@ -36,31 +36,31 @@ contract PriceBookTest is Test {
         Level memory level;
 
         // Levels: [25].
-        level = priceBook.createDefaultBuyOrder(25).level;
+        level = priceBook.createBuyOrder(25).level;
 
         assertEq(priceBook.bestBuyPrice(), 25);
         assertLevels(25);
 
         // Levels: [30, 25].
-        level = priceBook.createDefaultBuyOrder(30).level;
+        level = priceBook.createBuyOrder(30).level;
 
         assertEq(priceBook.bestBuyPrice(), 30);
         assertLevels(30, 25);
 
         // Levels: [30, 25, 20].
-        level = priceBook.createDefaultBuyOrder(20).level;
+        level = priceBook.createBuyOrder(20).level;
 
         assertEq(priceBook.bestBuyPrice(), 30);
         assertLevels(30, 25, 20);
 
         // Levels: [30, 29, 25, 20].
-        level = priceBook.createDefaultBuyOrder(29).level;
+        level = priceBook.createBuyOrder(29).level;
 
         assertEq(priceBook.bestBuyPrice(), 30);
         assertLevels(30, 29, 25, 20);
 
         // Levels: [30, 29, 25, 21, 20].
-        level = priceBook.createDefaultBuyOrder(21).level;
+        level = priceBook.createBuyOrder(21).level;
 
         assertEq(priceBook.bestBuyPrice(), 30);
         assertLevels(30, 29, 25, 21, 20);
@@ -370,7 +370,7 @@ library OrderExt {
 library PriceBookExt {
     uint256 constant DEFAULT_VOLUME = 1_000;
 
-    function createDefaultBuyOrder(PriceBook priceBook, uint8 price) internal returns (PriceBookTest.Order memory) {
+    function createBuyOrder(PriceBook priceBook, uint8 price) internal returns (PriceBookTest.Order memory) {
         return createBuyOrder(priceBook, price, DEFAULT_VOLUME);
     }
 
@@ -388,7 +388,7 @@ library PriceBookExt {
         return _buyOrder;
     }
 
-    function createDefaultSellOrder(PriceBook priceBook, uint8 price) internal returns (PriceBookTest.Order memory) {
+    function createSellOrder(PriceBook priceBook, uint8 price) internal returns (PriceBookTest.Order memory) {
         return createSellOrder(priceBook, price, DEFAULT_VOLUME);
     }
 
