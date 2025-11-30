@@ -38,14 +38,14 @@ contract PriceBook {
     uint8 public bestBuyPrice;
     uint8 public bestSellPrice;
 
-    function cancelOrder(uint256 orderId) external {
+    function cancelOrder(uint256 orderId) external returns (uint256) {
         Order storage order = orders[orderId];
 
         if (order.maker != msg.sender) {
             revert Unauthorized();
         }
 
-        removeOrderAtLevelUnchecked(orderId);
+        return removeOrderAtLevelUnchecked(orderId);
     }
 
     function createOrder(uint8 price, bool isBuyOrder, uint256 volume) external returns (uint256) {
@@ -85,7 +85,7 @@ contract PriceBook {
         return id;
     }
 
-    function removeOrderAtLevelUnchecked(uint256 orderId) internal {
+    function removeOrderAtLevelUnchecked(uint256 orderId) internal returns (uint256) {
         Order storage order = orders[orderId];
         PriceLevel storage level = priceLevels[order.price];
 
@@ -103,7 +103,9 @@ contract PriceBook {
             level.tailOrder = order.prevOrder;
         }
 
-        level.totalVolume -= order.volume;
+        uint256 volume = order.volume;
+
+        level.totalVolume -= volume;
 
         if (level.totalVolume == 0) {
             require(level.headOrder == 0, "bug(removeOrderAtLevelUnchecked): headOrder != 0 when totalVolume == 0");
@@ -112,6 +114,8 @@ contract PriceBook {
         }
 
         delete orders[orderId];
+
+        return volume;
     }
 
     function createPriceLevel(uint8 price, bool isBuyOrder) internal {
