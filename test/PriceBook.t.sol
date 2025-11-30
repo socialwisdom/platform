@@ -163,8 +163,18 @@ library OrderExt {
 }
 
 library PriceBookExt {
+    uint256 constant DEFAULT_VOLUME = 1_000;
+
+    function createDefaultBuyOrder(PriceBook priceBook, uint8 price) internal returns (uint256) {
+        return createBuyOrder(priceBook, price, DEFAULT_VOLUME);
+    }
+
     function createBuyOrder(PriceBook priceBook, uint8 price, uint256 volume) internal returns (uint256) {
         return priceBook.createOrder(address(0x42), price, true, volume);
+    }
+
+    function createDefaultSellOrder(PriceBook priceBook, uint8 price) internal returns (uint256) {
+        return createSellOrder(priceBook, price, DEFAULT_VOLUME);
     }
 
     function createSellOrder(PriceBook priceBook, uint8 price, uint256 volume) internal returns (uint256) {
