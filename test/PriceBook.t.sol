@@ -28,7 +28,6 @@ contract PriceBookTest is Test {
         priceBook = new PriceBook();
 
         assert(!priceBook.bestBuyOrder().exists());
-        // assert(!priceBook.bestSellOrder().exists());
     }
 
     function test_sample() public pure {
@@ -203,8 +202,9 @@ library PriceBookExt {
         PriceBookTest.Order memory _buyOrder =
             order(priceBook, priceBook.createOrder(address(0x42), price, true, volume));
 
-        // TODO: check level consistency.
         require(OrderExt.isTail(_buyOrder), "PriceBookExt: created buy order is not tail");
+        require(_buyOrder.level.price == price, "PriceBookExt: created buy order's level price mismatch");
+        require(LevelExt.isBuy(_buyOrder.level), "PriceBookExt: created buy order's level is not a buy level");
 
         return _buyOrder;
     }
@@ -220,8 +220,9 @@ library PriceBookExt {
         PriceBookTest.Order memory _sellOrder =
             order(priceBook, priceBook.createOrder(address(0x42), price, false, volume));
 
-        // TODO: check level consistency.
         require(OrderExt.isTail(_sellOrder), "PriceBookExt: created sell order is not tail");
+        require(_sellOrder.level.price == price, "PriceBookExt: created sell order's level price mismatch");
+        require(!LevelExt.isBuy(_sellOrder.level), "PriceBookExt: created sell order's level is a buy level");
 
         return _sellOrder;
     }
@@ -268,11 +269,15 @@ library PriceBookExt {
     function bestBuyOrder(PriceBook priceBook) internal view returns (PriceBookTest.Order memory) {
         PriceBookTest.Order memory _bestBuyOrder = order(priceBook, bestBuyLevel(priceBook).data.headOrder);
 
-        // TODO: check level consistency.
-        if (OrderExt.exists(_bestBuyOrder)) {
+        if (priceBook.bestBuyPrice() != 0) {
+            require(OrderExt.exists(_bestBuyOrder), "PriceBookExt: best buy order does not exist");
             require(
                 OrderExt.isHead(_bestBuyOrder),
                 "PriceBookExt: best buy order is not head of best buy level's order list"
+            );
+            require(
+                !LevelExt.exists(LevelExt.higher(_bestBuyOrder.level)),
+                "PriceBookExt: best buy level has a higher level"
             );
         }
 
@@ -282,11 +287,15 @@ library PriceBookExt {
     function bestSellOrder(PriceBook priceBook) internal view returns (PriceBookTest.Order memory) {
         PriceBookTest.Order memory _bestSellOrder = order(priceBook, bestSellLevel(priceBook).data.headOrder);
 
-        // TODO: check level consistency.
-        if (OrderExt.exists(_bestSellOrder)) {
+        if (priceBook.bestSellPrice() != 0) {
+            require(OrderExt.exists(_bestSellOrder), "PriceBookExt: best sell order does not exist");
             require(
                 OrderExt.isHead(_bestSellOrder),
                 "PriceBookExt: best sell order is not head of best sell level's order list"
+            );
+            require(
+                !LevelExt.exists(LevelExt.lower(_bestSellOrder.level)),
+                "PriceBookExt: best sell level has a lower level"
             );
         }
 
