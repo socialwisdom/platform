@@ -28,10 +28,19 @@ contract PriceBookTest is Test {
         priceBook = new PriceBook();
 
         assert(!priceBook.bestBuyOrder().exists());
+        assert(!priceBook.bestSellOrder().exists());
     }
 
-    function test_sample() public pure {
-        assert(2 + 2 == 4);
+    function test_buyLevelsCreation() public {
+        Level memory level;
+
+        // Levels: [25].
+        level = priceBook.createDefaultBuyOrder(25).level;
+        assertEq(priceBook.bestBuyPrice(), 25);
+
+        assert(!level.prev().exists());
+        assertEq(level.price, 25);
+        assert(!level.next().exists());
     }
 }
 
@@ -52,6 +61,19 @@ library LevelExt {
         return self.data.ty == PriceBook.OrderType.BUY;
     }
 
+    function nextN(PriceBookTest.Level memory self, uint256 n)
+        internal
+        view
+        onlyExisting(self)
+        returns (PriceBookTest.Level memory)
+    {
+        for (uint256 i = 0; i < n; i++) {
+            self = next(self);
+        }
+
+        return self;
+    }
+
     function next(PriceBookTest.Level memory self)
         internal
         view
@@ -65,6 +87,32 @@ library LevelExt {
         }
     }
 
+    function prevN(PriceBookTest.Level memory self, uint256 n)
+        internal
+        view
+        onlyExisting(self)
+        returns (PriceBookTest.Level memory)
+    {
+        for (uint256 i = 0; i < n; i++) {
+            self = prev(self);
+        }
+
+        return self;
+    }
+
+    function prev(PriceBookTest.Level memory self)
+        internal
+        view
+        onlyExisting(self)
+        returns (PriceBookTest.Level memory)
+    {
+        if (isBuy(self)) {
+            return higher(self);
+        } else {
+            return lower(self);
+        }
+    }
+
     function higher(PriceBookTest.Level memory self)
         internal
         view
@@ -73,7 +121,9 @@ library LevelExt {
     {
         PriceBookTest.Level memory higherLevel = PriceBookExt.level(self.priceBook, self.data.higherLevel);
 
-        require(higherLevel.data.lowerLevel == self.price, "LevelExt: higher level's lowerLevel mismatch");
+        if (higherLevel.price != 0) {
+            require(higherLevel.data.lowerLevel == self.price, "LevelExt: nonzero higher level's lowerLevel mismatch");
+        }
 
         return higherLevel;
     }
@@ -86,7 +136,9 @@ library LevelExt {
     {
         PriceBookTest.Level memory lowerLevel = PriceBookExt.level(self.priceBook, self.data.lowerLevel);
 
-        require(lowerLevel.data.higherLevel == self.price, "LevelExt: lower level's higherLevel mismatch");
+        if (lowerLevel.price != 0) {
+            require(lowerLevel.data.higherLevel == self.price, "LevelExt: nonzero lower level's higherLevel mismatch");
+        }
 
         return lowerLevel;
     }
@@ -107,7 +159,6 @@ library OrderExt {
 
         if (_exists) {
             require(self.id != 0, "OrderExt: existing order's id must not be 0");
-            require(LevelExt.exists(self.level), "OrderExt: order's level does not exist");
             require(self.data.volume > 0, "OrderExt: existing order's volume must be > 0");
         }
 
@@ -122,6 +173,19 @@ library OrderExt {
         return LevelExt.isBuy(self.level);
     }
 
+    function nextN(PriceBookTest.Order memory self, uint256 n)
+        internal
+        view
+        onlyExisting(self)
+        returns (PriceBookTest.Order memory)
+    {
+        for (uint256 i = 0; i < n; i++) {
+            self = next(self);
+        }
+
+        return self;
+    }
+
     function next(PriceBookTest.Order memory self)
         internal
         view
@@ -133,6 +197,19 @@ library OrderExt {
         require(nextOrder.data.prevOrder == self.id, "OrderExt: next order's prevOrder mismatch");
 
         return nextOrder;
+    }
+
+    function prevN(PriceBookTest.Order memory self, uint256 n)
+        internal
+        view
+        onlyExisting(self)
+        returns (PriceBookTest.Order memory)
+    {
+        for (uint256 i = 0; i < n; i++) {
+            self = prev(self);
+        }
+
+        return self;
     }
 
     function prev(PriceBookTest.Order memory self)
