@@ -316,6 +316,7 @@ library OrderExt {
         if (_exists) {
             require(self.id != 0, "OrderExt: existing order's id must not be 0");
             require(self.data.volume > 0, "OrderExt: existing order's volume must be > 0");
+            require(LevelExt.exists(self.level), "OrderExt: existing order's level must exist");
         }
 
         return _exists;
@@ -540,28 +541,15 @@ library PriceBookExt {
     }
 
     function order(PriceBook priceBook, uint256 orderId) internal view returns (PriceBookTest.Order memory) {
-        (address _maker, uint256 _volume, uint256 _prevOrder, uint256 _nextOrder) = priceBook.orders(orderId);
+        (address _maker, uint8 _price, uint256 _volume, uint256 _prevOrder, uint256 _nextOrder) =
+            priceBook.orders(orderId);
 
         PriceBookTest.Order memory _order = PriceBookTest.Order(
-            orderId, level(priceBook, 0), PriceBook.Order(_maker, _volume, _prevOrder, _nextOrder), priceBook
+            orderId,
+            level(priceBook, _price),
+            PriceBook.Order(_maker, _price, _volume, _prevOrder, _nextOrder),
+            priceBook
         );
-
-        if (OrderExt.exists(_order)) {
-            PriceBookTest.Order memory orderHead = OrderExt.head(_order);
-
-            for (uint8 price = 1; price < 100; price++) {
-                PriceBookTest.Level memory _level = level(priceBook, price);
-
-                if (!LevelExt.exists(_level)) {
-                    continue;
-                }
-
-                if (_level.data.headOrder == orderHead.id) {
-                    _order.level = _level;
-                    break;
-                }
-            }
-        }
 
         return _order;
     }

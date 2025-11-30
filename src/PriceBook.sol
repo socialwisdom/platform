@@ -22,6 +22,7 @@ contract PriceBook {
 
     struct Order {
         address maker;
+        uint8 price;
         uint256 volume;
         uint256 prevOrder;
         uint256 nextOrder;
@@ -65,7 +66,7 @@ contract PriceBook {
             orders[level.tailOrder].nextOrder = id;
         }
 
-        orders[id] = Order({maker: maker, volume: volume, prevOrder: level.tailOrder, nextOrder: 0});
+        orders[id] = Order({maker: maker, price: price, volume: volume, prevOrder: level.tailOrder, nextOrder: 0});
 
         level.totalVolume += volume;
         level.tailOrder = id;
@@ -73,9 +74,9 @@ contract PriceBook {
         return id;
     }
 
-    function removeOrderAtLevelUnchecked(uint8 price, uint256 orderId) internal {
-        PriceLevel storage level = priceLevels[price];
+    function removeOrderAtLevelUnchecked(uint256 orderId) internal {
         Order storage order = orders[orderId];
+        PriceLevel storage level = priceLevels[order.price];
 
         if (order.prevOrder != 0) {
             orders[order.prevOrder].nextOrder = order.nextOrder;
@@ -96,7 +97,7 @@ contract PriceBook {
         if (level.totalVolume == 0) {
             require(level.headOrder == 0, "bug(removeOrderAtLevelUnchecked): headOrder != 0 when totalVolume == 0");
             require(level.tailOrder == 0, "bug(removeOrderAtLevelUnchecked): tailOrder != 0 when totalVolume == 0");
-            removePriceLevel(price);
+            removePriceLevel(order.price);
         }
 
         delete orders[orderId];
