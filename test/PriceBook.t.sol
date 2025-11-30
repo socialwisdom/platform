@@ -163,7 +163,7 @@ library LevelExt {
         return self.data.ty == PriceBook.OrderType.BUY;
     }
 
-    function nextN(PriceBookTest.Level memory self, uint256 n)
+    function next(PriceBookTest.Level memory self, uint256 n)
         internal
         view
         onlyExisting(self)
@@ -189,7 +189,7 @@ library LevelExt {
         }
     }
 
-    function prevN(PriceBookTest.Level memory self, uint256 n)
+    function prev(PriceBookTest.Level memory self, uint256 n)
         internal
         view
         onlyExisting(self)
@@ -275,7 +275,7 @@ library OrderExt {
         return LevelExt.isBuy(self.level);
     }
 
-    function nextN(PriceBookTest.Order memory self, uint256 n)
+    function next(PriceBookTest.Order memory self, uint256 n)
         internal
         view
         onlyExisting(self)
@@ -301,7 +301,7 @@ library OrderExt {
         return nextOrder;
     }
 
-    function prevN(PriceBookTest.Order memory self, uint256 n)
+    function prev(PriceBookTest.Order memory self, uint256 n)
         internal
         view
         onlyExisting(self)
