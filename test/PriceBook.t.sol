@@ -99,6 +99,10 @@ library LevelExt {
 }
 
 library OrderExt {
+    function refetch(PriceBookTest.Order memory self) internal view returns (PriceBookTest.Order memory) {
+        return PriceBookExt.order(self.priceBook, self.id);
+    }
+
     function exists(PriceBookTest.Order memory self) internal pure returns (bool) {
         bool _exists = self.data.maker != address(0);
 
