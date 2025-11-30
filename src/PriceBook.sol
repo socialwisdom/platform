@@ -21,7 +21,6 @@ contract PriceBook {
     }
 
     struct Order {
-        uint256 id;
         address maker;
         uint256 volume;
         uint256 prevOrder;
@@ -66,7 +65,7 @@ contract PriceBook {
             orders[level.tailOrder].nextOrder = id;
         }
 
-        orders[id] = Order({id: id, maker: maker, volume: volume, prevOrder: level.tailOrder, nextOrder: 0});
+        orders[id] = Order({maker: maker, volume: volume, prevOrder: level.tailOrder, nextOrder: 0});
 
         level.totalVolume += volume;
         level.tailOrder = id;
