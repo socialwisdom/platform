@@ -64,7 +64,11 @@ library LevelExt {
         onlyExisting(self)
         returns (PriceBookTest.Level memory)
     {
-        return PriceBookExt.level(self.priceBook, self.data.higherLevel);
+        PriceBookTest.Level memory higherLevel = PriceBookExt.level(self.priceBook, self.data.higherLevel);
+
+        require(higherLevel.data.lowerLevel == self.price, "LevelExt: higher level's lowerLevel mismatch");
+
+        return higherLevel;
     }
 
     function lower(PriceBookTest.Level memory self)
@@ -73,7 +77,11 @@ library LevelExt {
         onlyExisting(self)
         returns (PriceBookTest.Level memory)
     {
-        return PriceBookExt.level(self.priceBook, self.data.lowerLevel);
+        PriceBookTest.Level memory lowerLevel = PriceBookExt.level(self.priceBook, self.data.lowerLevel);
+
+        require(lowerLevel.data.higherLevel == self.price, "LevelExt: lower level's higherLevel mismatch");
+
+        return lowerLevel;
     }
 
     modifier onlyExisting(PriceBookTest.Level memory self) {
@@ -110,7 +118,11 @@ library OrderExt {
         onlyExisting(self)
         returns (PriceBookTest.Order memory)
     {
-        return PriceBookExt.order(self.priceBook, self.data.nextOrder);
+        PriceBookTest.Order memory nextOrder = PriceBookExt.order(self.priceBook, self.data.nextOrder);
+
+        require(nextOrder.data.prevOrder == self.id, "OrderExt: next order's prevOrder mismatch");
+
+        return nextOrder;
     }
 
     function prev(PriceBookTest.Order memory self)
@@ -119,7 +131,11 @@ library OrderExt {
         onlyExisting(self)
         returns (PriceBookTest.Order memory)
     {
-        return PriceBookExt.order(self.priceBook, self.data.prevOrder);
+        PriceBookTest.Order memory prevOrder = PriceBookExt.order(self.priceBook, self.data.prevOrder);
+
+        require(prevOrder.data.nextOrder == self.id, "OrderExt: prev order's nextOrder mismatch");
+
+        return prevOrder;
     }
 
     function isHead(PriceBookTest.Order memory self) internal pure onlyExisting(self) returns (bool) {
@@ -188,11 +204,25 @@ library PriceBookExt {
     }
 
     function bestBuyLevel(PriceBook priceBook) internal view returns (PriceBookTest.Level memory) {
-        return level(priceBook, priceBook.bestBuyPrice());
+        PriceBookTest.Level memory bestBuy = level(priceBook, priceBook.bestBuyPrice());
+
+        if (LevelExt.exists(bestBuy)) {
+            require(LevelExt.isBuy(bestBuy), "PriceBookExt: best buy level is not a buy level");
+            require(bestBuy.data.higherLevel == 0, "PriceBookExt: best buy level's higherLevel is not 0");
+        }
+
+        return bestBuy;
     }
 
     function bestSellLevel(PriceBook priceBook) internal view returns (PriceBookTest.Level memory) {
-        return level(priceBook, priceBook.bestSellPrice());
+        PriceBookTest.Level memory bestSell = level(priceBook, priceBook.bestSellPrice());
+
+        if (LevelExt.exists(bestSell)) {
+            require(!LevelExt.isBuy(bestSell), "PriceBookExt: best sell level is a buy level");
+            require(bestSell.data.lowerLevel == 0, "PriceBookExt: best sell level's lowerLevel is not 0");
+        }
+
+        return bestSell;
     }
 
     function level(PriceBook priceBook, uint8 price) internal view returns (PriceBookTest.Level memory) {
