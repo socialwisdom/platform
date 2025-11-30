@@ -41,6 +41,48 @@ contract PriceBookTest is Test {
         assert(!level.prev().exists());
         assertEq(level.price, 25);
         assert(!level.next().exists());
+
+        // Levels: [30, 25].
+        level = priceBook.createDefaultBuyOrder(30).level;
+        assertEq(priceBook.bestBuyPrice(), 30);
+
+        assert(!level.prev().exists());
+        assertEq(level.price, 30);
+        assertEq(level.next().price, 25);
+        assert(!level.nextN(2).exists());
+
+        // Levels: [30, 25, 20].
+        level = priceBook.createDefaultBuyOrder(20).level;
+        assertEq(priceBook.bestBuyPrice(), 30);
+
+        assert(!level.prevN(3).exists());
+        assertEq(level.prevN(2).price, 30);
+        assertEq(level.prev().price, 25);
+        assertEq(level.price, 20);
+        assert(!level.next().exists());
+
+        // Levels: [30, 29, 25, 20].
+        level = priceBook.createDefaultBuyOrder(29).level;
+        assertEq(priceBook.bestBuyPrice(), 30);
+
+        assert(!level.prevN(2).exists());
+        assertEq(level.prev().price, 30);
+        assertEq(level.price, 29);
+        assertEq(level.next().price, 25);
+        assertEq(level.nextN(2).price, 20);
+        assert(!level.nextN(3).exists());
+
+        // Levels: [30, 29, 25, 21, 20].
+        level = priceBook.createDefaultBuyOrder(21).level;
+        assertEq(priceBook.bestBuyPrice(), 30);
+
+        assert(!level.prevN(4).exists());
+        assertEq(level.prevN(3).price, 30);
+        assertEq(level.prevN(2).price, 29);
+        assertEq(level.prev().price, 25);
+        assertEq(level.price, 21);
+        assertEq(level.next().price, 20);
+        assert(!level.nextN(2).exists());
     }
 }
 
