@@ -82,57 +82,33 @@ contract PriceBookTest is Test {
             console.log("Asserting best buy price: ", prices[0]);
             assertEq(priceBook.bestBuyPrice(), prices[0]);
             assert(level.data.ty == PriceBook.OrderType.BUY);
-
-            for (uint256 i = 0; i < prices.length; i++) {
-                assertEq(level.price, prices[i]);
-                console.log("> price: ", level.price);
-
-                if (i < prices.length - 1) {
-                    level = level.next();
-                } else {
-                    console.log(">> checked next doesn't exist after :", level.price);
-                    assert(!level.next().exists());
-                }
-            }
-
-            for (uint256 i = prices.length; i > 0; i--) {
-                assertEq(level.price, prices[i - 1]);
-                console.log("< price: ", level.price);
-
-                if (i > 1) {
-                    level = level.prev();
-                } else {
-                    console.log("<< checked prev doesn't exist before :", level.price);
-                    assert(!level.prev().exists());
-                }
-            }
         } else {
             console.log("Asserting best sell price: ", prices[0]);
             assertEq(priceBook.bestSellPrice(), prices[0]);
             assert(level.data.ty == PriceBook.OrderType.SELL);
+        }
 
-            for (uint256 i = 0; i < prices.length; i++) {
-                assertEq(level.price, prices[i]);
-                console.log("< price: ", level.price);
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertEq(level.price, prices[i]);
+            console.log("> price: ", level.price);
 
-                if (i < prices.length - 1) {
-                    level = level.prev();
-                } else {
-                    console.log("<< checked prev doesn't exist before :", level.price);
-                    assert(!level.prev().exists());
-                }
+            if (i < prices.length - 1) {
+                level = level.next();
+            } else {
+                console.log(">> checked next doesn't exist after :", level.price);
+                assert(!level.next().exists());
             }
+        }
 
-            for (uint256 i = prices.length; i > 0; i--) {
-                assertEq(level.price, prices[i - 1]);
-                console.log("> price: ", level.price);
+        for (uint256 i = prices.length; i > 0; i--) {
+            assertEq(level.price, prices[i - 1]);
+            console.log("< price: ", level.price);
 
-                if (i > 1) {
-                    level = level.next();
-                } else {
-                    console.log(">> checked next doesn't exist after :", level.price);
-                    assert(!level.next().exists());
-                }
+            if (i > 1) {
+                level = level.prev();
+            } else {
+                console.log("<< checked prev doesn't exist before :", level.price);
+                assert(!level.prev().exists());
             }
         }
     }
