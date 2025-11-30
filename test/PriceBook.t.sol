@@ -56,6 +56,30 @@ contract PriceBookTest is Test {
         assertLevels(30, 29, 25, 21, 20);
     }
 
+    function test_sellLevelsCreation() public {
+        Level memory level;
+
+        // Levels: [75].
+        level = priceBook.createSellOrder(75).level;
+        assertLevels(75, false);
+
+        // Levels: [70, 75].
+        level = priceBook.createSellOrder(70).level;
+        assertLevels(70, 75);
+
+        // Levels: [70, 75, 80].
+        level = priceBook.createSellOrder(80).level;
+        assertLevels(70, 75, 80);
+
+        // Levels: [70, 71, 75, 80].
+        level = priceBook.createSellOrder(71).level;
+        assertLevels(70, 71, 75, 80);
+
+        // Levels: [70, 71, 75, 79, 80].
+        level = priceBook.createSellOrder(79).level;
+        assertLevels(70, 71, 75, 79, 80);
+    }
+
     function assertLevels(uint8[] memory prices) internal view {
         require(prices.length > 0, "assertLevels: prices array must not be empty");
 
