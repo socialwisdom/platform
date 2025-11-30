@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 contract PriceBook {
     error BadPrice();
     error BadVolume();
+    error Unauthorized();
 
     enum OrderType {
         NONE,
@@ -36,6 +37,16 @@ contract PriceBook {
 
     uint8 public bestBuyPrice;
     uint8 public bestSellPrice;
+
+    function cancelOrder(uint256 orderId) external {
+        Order storage order = orders[orderId];
+
+        if (order.maker != msg.sender) {
+            revert Unauthorized();
+        }
+
+        removeOrderAtLevelUnchecked(orderId);
+    }
 
     function createOrder(uint8 price, bool isBuyOrder, uint256 volume) external returns (uint256) {
         createPriceLevel(price, isBuyOrder);
