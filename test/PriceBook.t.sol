@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import {PriceBook} from "../src/PriceBook.sol";
 import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
 
 contract PriceBookTest is Test {
     using LevelExt for Level;
@@ -36,53 +37,112 @@ contract PriceBookTest is Test {
 
         // Levels: [25].
         level = priceBook.createDefaultBuyOrder(25).level;
-        assertEq(priceBook.bestBuyPrice(), 25);
 
-        assert(!level.prev().exists());
-        assertEq(level.price, 25);
-        assert(!level.next().exists());
+        assertEq(priceBook.bestBuyPrice(), 25);
+        assertLevels(25);
 
         // Levels: [30, 25].
         level = priceBook.createDefaultBuyOrder(30).level;
-        assertEq(priceBook.bestBuyPrice(), 30);
 
-        assert(!level.prev().exists());
-        assertEq(level.price, 30);
-        assertEq(level.next().price, 25);
-        assert(!level.nextN(2).exists());
+        assertEq(priceBook.bestBuyPrice(), 30);
+        assertLevels(30, 25);
 
         // Levels: [30, 25, 20].
         level = priceBook.createDefaultBuyOrder(20).level;
-        assertEq(priceBook.bestBuyPrice(), 30);
 
-        assert(!level.prevN(3).exists());
-        assertEq(level.prevN(2).price, 30);
-        assertEq(level.prev().price, 25);
-        assertEq(level.price, 20);
-        assert(!level.next().exists());
+        assertEq(priceBook.bestBuyPrice(), 30);
+        assertLevels(30, 25, 20);
 
         // Levels: [30, 29, 25, 20].
         level = priceBook.createDefaultBuyOrder(29).level;
-        assertEq(priceBook.bestBuyPrice(), 30);
 
-        assert(!level.prevN(2).exists());
-        assertEq(level.prev().price, 30);
-        assertEq(level.price, 29);
-        assertEq(level.next().price, 25);
-        assertEq(level.nextN(2).price, 20);
-        assert(!level.nextN(3).exists());
+        assertEq(priceBook.bestBuyPrice(), 30);
+        assertLevels(30, 29, 25, 20);
 
         // Levels: [30, 29, 25, 21, 20].
         level = priceBook.createDefaultBuyOrder(21).level;
-        assertEq(priceBook.bestBuyPrice(), 30);
 
-        assert(!level.prevN(4).exists());
-        assertEq(level.prevN(3).price, 30);
-        assertEq(level.prevN(2).price, 29);
-        assertEq(level.prev().price, 25);
-        assertEq(level.price, 21);
-        assertEq(level.next().price, 20);
-        assert(!level.nextN(2).exists());
+        assertEq(priceBook.bestBuyPrice(), 30);
+        assertLevels(30, 29, 25, 21, 20);
+    }
+
+    function assertLevels(uint8[] memory prices) internal view {
+        require(prices.length > 0, "assertLevels: prices array must not be empty");
+
+        for (uint256 i = 1; i < prices.length; i++) {
+            require(prices[i - 1] > prices[i], "assertLevels: prices must be sorted in descending order");
+        }
+
+        Level memory level = PriceBookExt.level(priceBook, prices[0]);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertEq(level.price, prices[i]);
+            console.log("> price: ", level.price);
+
+            if (i < prices.length - 1) {
+                level = level.next();
+            } else {
+                console.log(">> checked next doesn't exist after :", level.price);
+                assert(!level.next().exists());
+            }
+        }
+
+        for (uint256 i = prices.length; i > 0; i--) {
+            assertEq(level.price, prices[i - 1]);
+            console.log("< price: ", level.price);
+
+            if (i > 1) {
+                level = level.prev();
+            } else {
+                console.log("<< checked prev doesn't exist before :", level.price);
+                assert(!level.prev().exists());
+            }
+        }
+    }
+
+    function assertLevels(uint8 i0) public view {
+        uint8[] memory prices = new uint8[](1);
+        prices[0] = i0;
+
+        assertLevels(prices);
+    }
+
+    function assertLevels(uint8 i0, uint8 i1) public view {
+        uint8[] memory prices = new uint8[](2);
+        prices[0] = i0;
+        prices[1] = i1;
+
+        assertLevels(prices);
+    }
+
+    function assertLevels(uint8 i0, uint8 i1, uint8 i2) public view {
+        uint8[] memory prices = new uint8[](3);
+        prices[0] = i0;
+        prices[1] = i1;
+        prices[2] = i2;
+
+        assertLevels(prices);
+    }
+
+    function assertLevels(uint8 i0, uint8 i1, uint8 i2, uint8 i3) public view {
+        uint8[] memory prices = new uint8[](4);
+        prices[0] = i0;
+        prices[1] = i1;
+        prices[2] = i2;
+        prices[3] = i3;
+
+        assertLevels(prices);
+    }
+
+    function assertLevels(uint8 i0, uint8 i1, uint8 i2, uint8 i3, uint8 i4) public view {
+        uint8[] memory prices = new uint8[](5);
+        prices[0] = i0;
+        prices[1] = i1;
+        prices[2] = i2;
+        prices[3] = i3;
+        prices[4] = i4;
+
+        assertLevels(prices);
     }
 }
 
