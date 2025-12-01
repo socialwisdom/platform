@@ -327,7 +327,7 @@ library OrderExt {
         return _exists;
     }
 
-    function cancel(PriceBookTest.Order memory self) internal onlyExisting(self) returns (uint256) {
+    function cancel(PriceBookTest.Order memory self) internal onlyExisting(self) returns (PriceBookTest.Order memory) {
         return PriceBookExt.cancelOrder(self.priceBook, self.id);
     }
 
@@ -434,8 +434,12 @@ library OrderExt {
 library PriceBookExt {
     uint256 constant DEFAULT_VOLUME = 1_000;
 
-    function cancelOrder(PriceBook priceBook, uint256 orderId) internal returns (uint256) {
-        return priceBook.cancelOrder(orderId);
+    function cancelOrder(PriceBook priceBook, uint256 orderId) internal returns (PriceBookTest.Order memory) {
+        PriceBookTest.Order memory _order = PriceBookExt.order(priceBook, orderId);
+
+        uint256 unfilledVolume = priceBook.cancelOrder(orderId);
+
+        return _order;
     }
 
     function createBuyOrder(PriceBook priceBook, uint8 price) internal returns (PriceBookTest.Order memory) {
