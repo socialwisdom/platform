@@ -129,7 +129,11 @@ contract PriceBookTest is Test {
     }
 
     function assertLevels(uint8[] memory prices) internal view {
-        require(prices.length > 0, "assertLevels: prices array must not be empty");
+        assertAllLevels(prices);
+
+        if (prices.length == 0) {
+            return;
+        }
 
         bool isAscending = true;
         bool isDescending = true;
@@ -182,6 +186,20 @@ contract PriceBookTest is Test {
                 console.log("<< checked prev doesn't exist before :", level.price);
                 assert(!level.prev().exists());
             }
+        }
+    }
+
+    function assertAllLevels(uint8[] memory existing) public view {
+        bool[] memory slots = new bool[](100);
+
+        for (uint256 i = 0; i < existing.length; i++) {
+            slots[existing[i]] = true;
+        }
+
+        for (uint8 price = 0; price < 100; price++) {
+            Level memory level = priceBook.level(price);
+
+            require(level.exists() == slots[price], "Level existence does not match expected");
         }
     }
 
