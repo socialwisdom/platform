@@ -263,6 +263,8 @@ contract PriceBook {
         if (level.lowerLevel != 0) {
             priceLevels[level.lowerLevel].higherLevel = level.higherLevel;
         }
+
+        delete priceLevels[price];
     }
 
     function removeSellLevelUnchecked(uint8 price) internal {
@@ -277,5 +279,7 @@ contract PriceBook {
         if (level.higherLevel != 0) {
             priceLevels[level.higherLevel].lowerLevel = level.lowerLevel;
         }
+
+        delete priceLevels[price];
     }
 }
