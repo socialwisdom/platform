@@ -59,6 +59,64 @@ contract PriceBookTest is Test {
         assertLevels(30, 29, 25, 21, 20);
     }
 
+    function test_buyLevelsRemoval() public {
+        // Levels: [50].
+        Order memory order50 = priceBook.createBuyOrder(50);
+        Order memory secondOrder50 = priceBook.createBuyOrder(50);
+
+        // Levels: [50].
+        secondOrder50 = secondOrder50.cancel();
+
+        assert(secondOrder50.cancelled());
+        assertEq(secondOrder50.unfilledVolume, PriceBookExt.DEFAULT_VOLUME);
+
+        assert(!secondOrder50.exists());
+        assert(secondOrder50.level.exists());
+        assertEq(priceBook.bestBuyPrice(), 50);
+
+        // Levels: [].
+        order50 = order50.cancel();
+
+        assert(order50.cancelled());
+        assertEq(order50.unfilledVolume, PriceBookExt.DEFAULT_VOLUME);
+
+        assert(!order50.exists());
+        assert(!order50.level.exists());
+        assertEq(priceBook.bestBuyPrice(), 0);
+
+        // Levels: [50].
+        order50 = priceBook.createBuyOrder(50);
+        assertLevels(50, true);
+
+        // Levels: [60, 50, 40, 30, 20].
+        Order memory order60 = priceBook.createBuyOrder(60);
+        Order memory order40 = priceBook.createBuyOrder(40);
+        priceBook.createBuyOrder(30);
+        Order memory order20 = priceBook.createBuyOrder(20);
+        assertLevels(60, 50, 40, 30, 20);
+
+        // Levels: [50, 40, 30, 20].
+        order60 = order60.cancel();
+
+        assert(!order60.exists());
+        assert(!order60.level.exists());
+        assertLevels(50, 40, 30, 20);
+
+        // Levels: [50, 40, 30].
+        order20 = order20.cancel();
+
+        assert(!order20.exists());
+        assert(!order20.level.exists());
+        assertLevels(50, 40, 30);
+
+        // Levels: [50, 30].
+        order40 = order40.cancel();
+
+        assert(!order40.exists());
+        assert(!order40.level.exists());
+        assertLevels(50, 30);
+    }
+
     function test_sellLevelsCreation() public {
         Level memory level;
 
@@ -103,7 +161,7 @@ contract PriceBookTest is Test {
             isAscending || isDescending, "assertLevels: prices must be sorted in either ascending or descending order"
         );
 
-        Level memory level = PriceBookExt.level(priceBook, prices[0]);
+        Level memory level = priceBook.level(prices[0]);
 
         if (isDescending) {
             console.log("Asserting best buy price: ", prices[0]);
