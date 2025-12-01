@@ -514,6 +514,14 @@ library PriceBookExt {
     function cancelOrder(PriceBook priceBook, uint256 orderId) internal returns (PriceBookTest.Order memory) {
         PriceBookTest.Order memory _order = order(priceBook, orderId);
 
+        if (_order.level.data.totalVolume == _order.data.volume && _order.level.exists()) {
+            if (_order.level.isBuy()) {
+                console.log(" *** Cancelling order that will remove buy level at price: ", _order.level.price);
+            } else {
+                console.log(" *** Cancelling order that will remove sell level at price: ", _order.level.price);
+            }
+        }
+
         uint256 unfilledVolume = priceBook.cancelOrder(orderId);
 
         _order = _order.refetch();
@@ -533,14 +541,21 @@ library PriceBookExt {
         internal
         returns (PriceBookTest.Order memory)
     {
-        uint256 prevVolume = level(priceBook, price).data.totalVolume;
+        PriceBookTest.Level memory _level = level(priceBook, price);
+
+        if (!_level.exists()) {
+            console.log(" *** Buy level will be created at price: ", price);
+        }
 
         PriceBookTest.Order memory _buyOrder = order(priceBook, priceBook.createOrder(price, true, volume));
 
         require(_buyOrder.isTail(), "PriceBookExt: created buy order is not tail");
         require(_buyOrder.level.price == price, "PriceBookExt: created buy order's level price mismatch");
         require(_buyOrder.level.isBuy(), "PriceBookExt: created buy order's level is not a buy level");
-        require(prevVolume + volume == _buyOrder.level.data.totalVolume, "PriceBookExt: level totalVolume mismatch");
+        require(
+            _level.data.totalVolume + volume == _buyOrder.level.data.totalVolume,
+            "PriceBookExt: level totalVolume mismatch"
+        );
 
         return _buyOrder;
     }
@@ -553,14 +568,21 @@ library PriceBookExt {
         internal
         returns (PriceBookTest.Order memory)
     {
-        uint256 prevVolume = level(priceBook, price).data.totalVolume;
+        PriceBookTest.Level memory _level = level(priceBook, price);
+
+        if (!_level.exists()) {
+            console.log(" *** Sell level will be created at price: ", price);
+        }
 
         PriceBookTest.Order memory _sellOrder = order(priceBook, priceBook.createOrder(price, false, volume));
 
         require(_sellOrder.isTail(), "PriceBookExt: created sell order is not tail");
         require(_sellOrder.level.price == price, "PriceBookExt: created sell order's level price mismatch");
         require(!_sellOrder.level.isBuy(), "PriceBookExt: created sell order's level is a buy level");
-        require(prevVolume + volume == _sellOrder.level.data.totalVolume, "PriceBookExt: level totalVolume mismatch");
+        require(
+            _level.data.totalVolume + volume == _sellOrder.level.data.totalVolume,
+            "PriceBookExt: level totalVolume mismatch"
+        );
 
         return _sellOrder;
     }
