@@ -41,7 +41,6 @@ contract PriceBookTest is Test {
         assert(!platform.bestSellOrder().exists());
     }
 
-    // TODO: test creation doesn't trigger level duplicates.
     function test_buyLevelsCreation() public {
         // Levels: [25].
         platform.buyAt(25);
@@ -62,6 +61,27 @@ contract PriceBookTest is Test {
         // Levels: [30, 29, 25, 21, 20].
         platform.buyAt(21);
         assertLevels(30, 29, 25, 21, 20);
+    }
+
+    function test_buyLevelsCreationUniqueness() public {
+        // Levels: [25].
+        platform.buyAt(25);
+        platform.buyAt(25);
+        assertLevels(25, true);
+
+        // Levels: [30, 25].
+        platform.buyAt(30);
+        platform.buyAt(30);
+        assertLevels(30, 25);
+
+        // Levels: [30, 25, 20].
+        platform.buyAt(20);
+        platform.buyAt(20);
+        assertLevels(30, 25, 20);
+
+        // Levels: [30, 25, 20].
+        platform.buyAt(25);
+        assertLevels(30, 25, 20);
     }
 
     // TODO: test removal that doesn't wipe level.
@@ -121,6 +141,27 @@ contract PriceBookTest is Test {
         // Levels: [70, 71, 75, 79, 80].
         platform.sellAt(79);
         assertLevels(70, 71, 75, 79, 80);
+    }
+
+    function test_sellLevelsCreationUniqueness() public {
+        // Levels: [75].
+        platform.sellAt(75);
+        platform.sellAt(75);
+        assertLevels(75, false);
+
+        // Levels: [70, 75].
+        platform.sellAt(70);
+        platform.sellAt(70);
+        assertLevels(70, 75);
+
+        // Levels: [70, 75, 80].
+        platform.sellAt(80);
+        platform.sellAt(80);
+        assertLevels(70, 75, 80);
+
+        // Levels: [70, 75, 80].
+        platform.sellAt(75);
+        assertLevels(70, 75, 80);
     }
 
     function test_sellLevelsRemoval() public {
