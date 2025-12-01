@@ -23,6 +23,7 @@ contract PriceBookTest is Test {
         Level level;
         PriceBook.Order data;
         PriceBook priceBook;
+        uint256 unfilledVolume;
     }
 
     function setUp() public {
@@ -306,36 +307,46 @@ library LevelExt {
 }
 
 library OrderExt {
-    function refetch(PriceBookTest.Order memory self) internal view returns (PriceBookTest.Order memory) {
+    function refetch(PriceBookTest.Order memory self)
+        internal
+        view
+        onlyExisting(self)
+        returns (PriceBookTest.Order memory)
+    {
         PriceBookTest.Order memory _order = PriceBookExt.order(self.priceBook, self.id);
 
+        _order.id = self.id;
+        _order.data.maker = self.data.maker;
         _order.data.price = self.level.price;
         _order.level = PriceBookExt.level(self.priceBook, self.level.price);
 
         return _order;
     }
 
-    function exists(PriceBookTest.Order memory self) internal pure returns (bool) {
-        bool _exists = self.data.maker != address(0);
+    function exists(PriceBookTest.Order memory self) internal view returns (bool) {
+        bool _exists = !cancelled(self) && self.data.maker != address(0);
 
         if (_exists) {
             require(self.id != 0, "OrderExt: existing order's id must not be 0");
             require(self.data.volume > 0, "OrderExt: existing order's volume must be > 0");
             require(LevelExt.exists(self.level), "OrderExt: existing order's level must exist");
+        } else if (cancelled(self)) {
+            PriceBookTest.Order memory _order = PriceBookExt.order(self.priceBook, self.id);
+            require(_order.data.maker == address(0), "OrderExt: cancelled order must not exist in PriceBook");
         }
 
         return _exists;
+    }
+
+    function cancelled(PriceBookTest.Order memory self) internal pure returns (bool) {
+        return self.unfilledVolume != 0;
     }
 
     function cancel(PriceBookTest.Order memory self) internal onlyExisting(self) returns (PriceBookTest.Order memory) {
         return PriceBookExt.cancelOrder(self.priceBook, self.id);
     }
 
-    function price(PriceBookTest.Order memory self) internal pure onlyExisting(self) returns (uint8) {
-        return self.level.price;
-    }
-
-    function isBuy(PriceBookTest.Order memory self) internal pure onlyExisting(self) returns (bool) {
+    function isBuy(PriceBookTest.Order memory self) internal view onlyExisting(self) returns (bool) {
         return LevelExt.isBuy(self.level);
     }
 
@@ -391,11 +402,11 @@ library OrderExt {
         return prevOrder;
     }
 
-    function isHead(PriceBookTest.Order memory self) internal pure onlyExisting(self) returns (bool) {
+    function isHead(PriceBookTest.Order memory self) internal view onlyExisting(self) returns (bool) {
         return self.data.prevOrder == 0;
     }
 
-    function isTail(PriceBookTest.Order memory self) internal pure onlyExisting(self) returns (bool) {
+    function isTail(PriceBookTest.Order memory self) internal view onlyExisting(self) returns (bool) {
         return self.data.nextOrder == 0;
     }
 
@@ -438,6 +449,12 @@ library PriceBookExt {
         PriceBookTest.Order memory _order = PriceBookExt.order(priceBook, orderId);
 
         uint256 unfilledVolume = priceBook.cancelOrder(orderId);
+
+        _order = OrderExt.refetch(_order);
+        _order.unfilledVolume = unfilledVolume;
+
+        assert(OrderExt.cancelled(_order));
+        assert(!OrderExt.exists(_order));
 
         return _order;
     }
@@ -561,12 +578,13 @@ library PriceBookExt {
         (address _maker, uint8 _price, uint256 _volume, uint256 _prevOrder, uint256 _nextOrder) =
             priceBook.orders(orderId);
 
-        PriceBookTest.Order memory _order = PriceBookTest.Order(
-            orderId,
-            level(priceBook, _price),
-            PriceBook.Order(_maker, _price, _volume, _prevOrder, _nextOrder),
-            priceBook
-        );
+        PriceBookTest.Order memory _order = PriceBookTest.Order({
+            id: orderId,
+            level: level(priceBook, _price),
+            data: PriceBook.Order(_maker, _price, _volume, _prevOrder, _nextOrder),
+            priceBook: priceBook,
+            unfilledVolume: 0
+        });
 
         return _order;
     }
