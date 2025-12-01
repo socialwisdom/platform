@@ -529,6 +529,9 @@ library PlatformExt {
             } else {
                 console.log(" *** Cancelling order that will remove sell level at price: ", _order.level.price);
             }
+
+            platform.vm.expectEmit();
+            emit PriceBook.PriceLevelRemoved(_order.level.price, _order.level.isBuy());
         }
 
         uint256 unfilledVolume = platform.inner.cancelOrder(orderId);
@@ -557,6 +560,9 @@ library PlatformExt {
 
         if (!_level.exists()) {
             console.log(" *** Buy level will be created at price: ", price);
+
+            platform.vm.expectEmit();
+            emit PriceBook.PriceLevelCreated(price, true);
         }
 
         PriceBookTest.Order memory _buyOrder = order(platform, platform.inner.createOrder(price, true, volume));
@@ -587,6 +593,9 @@ library PlatformExt {
 
         if (!_level.exists()) {
             console.log(" *** Sell level will be created at price: ", price);
+
+            platform.vm.expectEmit();
+            emit PriceBook.PriceLevelCreated(price, false);
         }
 
         PriceBookTest.Order memory _sellOrder = order(platform, platform.inner.createOrder(price, false, volume));
