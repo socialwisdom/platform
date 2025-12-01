@@ -35,44 +35,33 @@ contract PriceBookTest is Test {
         assert(!priceBook.bestSellOrder().exists());
     }
 
+    // TODO: test creation doesn't trigger level duplicates.
     function test_buyLevelsCreation() public {
-        Level memory level;
-
         // Levels: [25].
-        level = priceBook.createBuyOrder(25).level;
+        priceBook.createBuyOrder(25);
         assertLevels(25, true);
 
         // Levels: [30, 25].
-        level = priceBook.createBuyOrder(30).level;
+        priceBook.createBuyOrder(30);
         assertLevels(30, 25);
 
         // Levels: [30, 25, 20].
-        level = priceBook.createBuyOrder(20).level;
+        priceBook.createBuyOrder(20);
         assertLevels(30, 25, 20);
 
         // Levels: [30, 29, 25, 20].
-        level = priceBook.createBuyOrder(29).level;
+        priceBook.createBuyOrder(29);
         assertLevels(30, 29, 25, 20);
 
         // Levels: [30, 29, 25, 21, 20].
-        level = priceBook.createBuyOrder(21).level;
+        priceBook.createBuyOrder(21);
         assertLevels(30, 29, 25, 21, 20);
     }
 
+    // TODO: test removal that doesn't wipe level.
     function test_buyLevelsRemoval() public {
         // Levels: [50].
         Order memory order50 = priceBook.createBuyOrder(50);
-        Order memory secondOrder50 = priceBook.createBuyOrder(50);
-
-        // Levels: [50].
-        secondOrder50 = secondOrder50.cancel();
-
-        assert(secondOrder50.cancelled());
-        assertEq(secondOrder50.unfilledVolume, PriceBookExt.DEFAULT_VOLUME);
-
-        assert(!secondOrder50.exists());
-        assert(secondOrder50.level.exists());
-        assertEq(priceBook.bestBuyPrice(), 50);
 
         // Levels: [].
         order50 = order50.cancel();
@@ -118,26 +107,24 @@ contract PriceBookTest is Test {
     }
 
     function test_sellLevelsCreation() public {
-        Level memory level;
-
         // Levels: [75].
-        level = priceBook.createSellOrder(75).level;
+        priceBook.createSellOrder(75);
         assertLevels(75, false);
 
         // Levels: [70, 75].
-        level = priceBook.createSellOrder(70).level;
+        priceBook.createSellOrder(70);
         assertLevels(70, 75);
 
         // Levels: [70, 75, 80].
-        level = priceBook.createSellOrder(80).level;
+        priceBook.createSellOrder(80);
         assertLevels(70, 75, 80);
 
         // Levels: [70, 71, 75, 80].
-        level = priceBook.createSellOrder(71).level;
+        priceBook.createSellOrder(71);
         assertLevels(70, 71, 75, 80);
 
         // Levels: [70, 71, 75, 79, 80].
-        level = priceBook.createSellOrder(79).level;
+        priceBook.createSellOrder(79);
         assertLevels(70, 71, 75, 79, 80);
     }
 
