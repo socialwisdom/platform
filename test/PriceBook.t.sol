@@ -556,26 +556,7 @@ library PlatformExt {
         internal
         returns (PriceBookTest.Order memory)
     {
-        PriceBookTest.Level memory _level = level(platform, price);
-
-        if (!_level.exists()) {
-            console.log(" *** Buy level will be created at price: ", price);
-
-            platform.vm.expectEmit();
-            emit PriceBook.PriceLevelCreated(price, true);
-        }
-
-        PriceBookTest.Order memory _buyOrder = order(platform, platform.inner.createOrder(price, true, volume));
-
-        require(_buyOrder.isTail(), "PlatformExt: created buy order is not tail");
-        require(_buyOrder.level.price == price, "PlatformExt: created buy order's level price mismatch");
-        require(_buyOrder.level.isBuy(), "PlatformExt: created buy order's level is not a buy level");
-        require(
-            _level.data.totalVolume + volume == _buyOrder.level.data.totalVolume,
-            "PlatformExt: level totalVolume mismatch"
-        );
-
-        return _buyOrder;
+        return createOrder(platform, price, volume, true);
     }
 
     function createSellOrder(PriceBookTest.Platform memory platform, uint8 price)
@@ -589,26 +570,37 @@ library PlatformExt {
         internal
         returns (PriceBookTest.Order memory)
     {
+        return createOrder(platform, price, volume, false);
+    }
+
+    function createOrder(PriceBookTest.Platform memory platform, uint8 price, uint256 volume, bool isBuy)
+        internal
+        returns (PriceBookTest.Order memory)
+    {
         PriceBookTest.Level memory _level = level(platform, price);
 
         if (!_level.exists()) {
-            console.log(" *** Sell level will be created at price: ", price);
+            if (isBuy) {
+                console.log(" *** Buy level will be created at price: ", price);
+            } else {
+                console.log(" *** Sell level will be created at price: ", price);
+            }
 
             platform.vm.expectEmit();
-            emit PriceBook.PriceLevelCreated(price, false);
+            emit PriceBook.PriceLevelCreated(price, isBuy);
         }
 
-        PriceBookTest.Order memory _sellOrder = order(platform, platform.inner.createOrder(price, false, volume));
+        PriceBookTest.Order memory _order = order(platform, platform.inner.createOrder(price, isBuy, volume));
 
-        require(_sellOrder.isTail(), "PlatformExt: created sell order is not tail");
-        require(_sellOrder.level.price == price, "PlatformExt: created sell order's level price mismatch");
-        require(!_sellOrder.level.isBuy(), "PlatformExt: created sell order's level is a buy level");
+        require(_order.isTail(), "PlatformExt: created order is not tail");
+        require(_order.data.price == price, "PlatformExt: created order's price mismatch");
+        require(_order.level.price == price, "PlatformExt: created order's level price mismatch");
+        require(_order.level.isBuy() == isBuy, "PlatformExt: created order's level type mismatch");
         require(
-            _level.data.totalVolume + volume == _sellOrder.level.data.totalVolume,
-            "PlatformExt: level totalVolume mismatch"
+            _level.data.totalVolume + volume == _order.level.data.totalVolume, "PlatformExt: level totalVolume mismatch"
         );
 
-        return _sellOrder;
+        return _order;
     }
 
     function bestBuyLevel(PriceBookTest.Platform memory platform) internal view returns (PriceBookTest.Level memory) {
