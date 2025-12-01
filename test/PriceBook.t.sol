@@ -41,6 +41,69 @@ contract PriceBookTest is Test {
         assert(!platform.bestSellOrder().exists());
     }
 
+    function test_cancelOrder_badOrder() public {
+        vm.expectRevert(PriceBook.BadOrder.selector);
+        platform.inner.cancelOrder(0);
+
+        vm.expectRevert(PriceBook.BadOrder.selector);
+        platform.inner.cancelOrder(1);
+
+        uint256 id = platform.inner.createOrder(50, true, platform.inner.minVolume());
+        assertEq(id, 1);
+
+        platform.inner.cancelOrder(1);
+
+        vm.expectRevert(PriceBook.BadOrder.selector);
+        platform.inner.cancelOrder(1);
+    }
+
+    function test_createOrder_badPrice() public {
+        vm.expectRevert(PriceBook.BadPrice.selector);
+        platform.inner.createOrder(0, true, 0);
+
+        vm.expectRevert(PriceBook.BadPrice.selector);
+        platform.inner.createOrder(100, true, 0);
+
+        vm.expectRevert(PriceBook.BadPrice.selector);
+        platform.inner.createOrder(255, true, 0);
+
+        vm.expectRevert(PriceBook.BadPrice.selector);
+        platform.inner.createOrder(0, false, 0);
+
+        vm.expectRevert(PriceBook.BadPrice.selector);
+        platform.inner.createOrder(100, false, 0);
+
+        vm.expectRevert(PriceBook.BadPrice.selector);
+        platform.inner.createOrder(255, false, 0);
+    }
+
+    function test_createOrder_badVolume() public {
+        uint256 minVolume = platform.inner.minVolume();
+        require(minVolume > 0, "minVolume must be > 0");
+
+        vm.expectRevert(PriceBook.BadVolume.selector);
+        platform.inner.createOrder(50, true, 0);
+
+        vm.expectRevert(PriceBook.BadVolume.selector);
+        platform.inner.createOrder(50, true, minVolume - 1);
+
+        vm.expectRevert(PriceBook.BadVolume.selector);
+        platform.inner.createOrder(50, false, 0);
+
+        vm.expectRevert(PriceBook.BadVolume.selector);
+        platform.inner.createOrder(50, false, minVolume - 1);
+    }
+
+    function test_cancelOrder_unauthorized() public {
+        uint256 id = platform.inner.createOrder(50, true, platform.inner.minVolume());
+        assertEq(id, 1);
+
+        vm.startPrank(address(0x1));
+
+        vm.expectRevert(PriceBook.Unauthorized.selector);
+        platform.inner.cancelOrder(1);
+    }
+
     function test_tmpLevelsCrossing() public {
         platform.inner.createOrder(60, true, 1_000);
 
