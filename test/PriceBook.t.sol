@@ -65,13 +65,11 @@ contract PriceBookTest is Test {
 
         // Levels: [].
         order50 = order50.cancel();
-
-        assert(order50.cancelled());
-        assertEq(order50.unfilledVolume, PriceBookExt.DEFAULT_VOLUME);
+        assertLevels(new uint8[](0));
 
         assert(!order50.exists());
-        assert(!order50.level.exists());
-        assertEq(priceBook.bestBuyPrice(), 0);
+        assert(order50.cancelled());
+        assertEq(order50.unfilledVolume, PriceBookExt.DEFAULT_VOLUME);
 
         // Levels: [50].
         order50 = priceBook.createBuyOrder(50);
@@ -86,23 +84,14 @@ contract PriceBookTest is Test {
 
         // Levels: [50, 40, 30, 20].
         order60 = order60.cancel();
-
-        assert(!order60.exists());
-        assert(!order60.level.exists());
         assertLevels(50, 40, 30, 20);
 
         // Levels: [50, 40, 30].
         order20 = order20.cancel();
-
-        assert(!order20.exists());
-        assert(!order20.level.exists());
         assertLevels(50, 40, 30);
 
         // Levels: [50, 30].
         order40 = order40.cancel();
-
-        assert(!order40.exists());
-        assert(!order40.level.exists());
         assertLevels(50, 30);
     }
 
@@ -132,6 +121,12 @@ contract PriceBookTest is Test {
         assertAllLevels(prices);
 
         if (prices.length == 0) {
+            console.log("Asserting best buy price is zero");
+            assertEq(priceBook.bestBuyPrice(), 0);
+
+            console.log("Asserting best sell price is zero");
+            assertEq(priceBook.bestSellPrice(), 0);
+
             return;
         }
 
