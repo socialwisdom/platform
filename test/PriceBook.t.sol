@@ -44,30 +44,30 @@ contract PriceBookTest is Test {
     // TODO: test creation doesn't trigger level duplicates.
     function test_buyLevelsCreation() public {
         // Levels: [25].
-        platform.createBuyOrder(25);
+        platform.buyAt(25);
         assertLevels(25, true);
 
         // Levels: [30, 25].
-        platform.createBuyOrder(30);
+        platform.buyAt(30);
         assertLevels(30, 25);
 
         // Levels: [30, 25, 20].
-        platform.createBuyOrder(20);
+        platform.buyAt(20);
         assertLevels(30, 25, 20);
 
         // Levels: [30, 29, 25, 20].
-        platform.createBuyOrder(29);
+        platform.buyAt(29);
         assertLevels(30, 29, 25, 20);
 
         // Levels: [30, 29, 25, 21, 20].
-        platform.createBuyOrder(21);
+        platform.buyAt(21);
         assertLevels(30, 29, 25, 21, 20);
     }
 
     // TODO: test removal that doesn't wipe level.
     function test_buyLevelsRemoval() public {
         // Levels: [50].
-        Order memory order50 = platform.createBuyOrder(50);
+        Order memory order50 = platform.buyAt(50);
 
         // Levels: [].
         order50 = order50.cancel();
@@ -78,14 +78,14 @@ contract PriceBookTest is Test {
         assertEq(order50.unfilledVolume, PlatformExt.DEFAULT_VOLUME);
 
         // Levels: [50].
-        order50 = platform.createBuyOrder(50);
+        order50 = platform.buyAt(50);
         assertLevels(50, true);
 
         // Levels: [60, 50, 40, 30, 20].
-        Order memory order60 = platform.createBuyOrder(60);
-        Order memory order40 = platform.createBuyOrder(40);
-        platform.createBuyOrder(30);
-        Order memory order20 = platform.createBuyOrder(20);
+        Order memory order60 = platform.buyAt(60);
+        Order memory order40 = platform.buyAt(40);
+        platform.buyAt(30);
+        Order memory order20 = platform.buyAt(20);
         assertLevels(60, 50, 40, 30, 20);
 
         // Levels: [50, 40, 30, 20].
@@ -545,14 +545,11 @@ library PlatformExt {
         return _order;
     }
 
-    function createBuyOrder(PriceBookTest.Platform memory platform, uint8 price)
-        internal
-        returns (PriceBookTest.Order memory)
-    {
-        return createBuyOrder(platform, price, DEFAULT_VOLUME);
+    function buyAt(PriceBookTest.Platform memory platform, uint8 price) internal returns (PriceBookTest.Order memory) {
+        return buyAt(platform, price, DEFAULT_VOLUME);
     }
 
-    function createBuyOrder(PriceBookTest.Platform memory platform, uint8 price, uint256 volume)
+    function buyAt(PriceBookTest.Platform memory platform, uint8 price, uint256 volume)
         internal
         returns (PriceBookTest.Order memory)
     {
