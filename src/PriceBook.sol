@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 contract PriceBook {
+    error BadOrder();
     error BadPrice();
     error BadVolume();
     error Unauthorized();
@@ -44,11 +45,15 @@ contract PriceBook {
     function cancelOrder(uint256 orderId) external returns (uint256) {
         Order storage order = orders[orderId];
 
+        if (order.price == 0) {
+            revert BadOrder();
+        }
+
         if (order.maker != msg.sender) {
             revert Unauthorized();
         }
 
-        return removeOrderAtLevelUnchecked(orderId);
+        return removeOrderUnchecked(orderId);
     }
 
     function createOrder(uint8 price, bool isBuyOrder, uint256 volume) external returns (uint256) {
@@ -88,21 +93,21 @@ contract PriceBook {
         return id;
     }
 
-    function removeOrderAtLevelUnchecked(uint256 orderId) internal returns (uint256) {
+    function removeOrderUnchecked(uint256 orderId) internal returns (uint256) {
         Order storage order = orders[orderId];
         PriceLevel storage level = priceLevels[order.price];
 
         if (order.prevOrder != 0) {
             orders[order.prevOrder].nextOrder = order.nextOrder;
         } else {
-            require(level.headOrder == orderId, "bug(removeOrderAtLevelUnchecked): headOrder mismatch");
+            require(level.headOrder == orderId, "bug(removeOrderUnchecked): headOrder mismatch");
             level.headOrder = order.nextOrder;
         }
 
         if (order.nextOrder != 0) {
             orders[order.nextOrder].prevOrder = order.prevOrder;
         } else {
-            require(level.tailOrder == orderId, "bug(removeOrderAtLevelUnchecked): tailOrder mismatch");
+            require(level.tailOrder == orderId, "bug(removeOrderUnchecked): tailOrder mismatch");
             level.tailOrder = order.prevOrder;
         }
 
@@ -111,8 +116,8 @@ contract PriceBook {
         level.totalVolume -= volume;
 
         if (level.totalVolume == 0) {
-            require(level.headOrder == 0, "bug(removeOrderAtLevelUnchecked): headOrder != 0 when totalVolume == 0");
-            require(level.tailOrder == 0, "bug(removeOrderAtLevelUnchecked): tailOrder != 0 when totalVolume == 0");
+            require(level.headOrder == 0, "bug(removeOrderUnchecked): headOrder != 0 when totalVolume == 0");
+            require(level.tailOrder == 0, "bug(removeOrderUnchecked): tailOrder != 0 when totalVolume == 0");
             removePriceLevel(order.price);
         }
 
