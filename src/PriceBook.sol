@@ -6,6 +6,9 @@ contract PriceBook {
     error BadVolume();
     error Unauthorized();
 
+    event PriceLevelCreated(uint8 price, bool isBuyLevel);
+    event PriceLevelRemoved(uint8 price, bool isBuyLevel);
+
     enum OrderType {
         NONE,
         BUY,
@@ -147,6 +150,8 @@ contract PriceBook {
                 tailOrder: 0
             });
 
+            emit PriceLevelCreated(price, true);
+
             if (bestBuyPrice != 0) {
                 require(priceLevels[bestBuyPrice].higherLevel == 0, "bug");
                 priceLevels[bestBuyPrice].higherLevel = price;
@@ -171,7 +176,7 @@ contract PriceBook {
             }
         }
 
-        createPriceLevelBetween(price, higherLevel, lowerLevel, OrderType.BUY);
+        createPriceLevelBetween(price, higherLevel, lowerLevel, true);
     }
 
     function createSellLevelUnchecked(uint8 price) internal {
@@ -184,6 +189,8 @@ contract PriceBook {
                 headOrder: 0,
                 tailOrder: 0
             });
+
+            emit PriceLevelCreated(price, false);
 
             if (bestSellPrice != 0) {
                 require(priceLevels[bestSellPrice].lowerLevel == 0, "bug");
@@ -209,15 +216,17 @@ contract PriceBook {
             }
         }
 
-        createPriceLevelBetween(price, higherLevel, lowerLevel, OrderType.SELL);
+        createPriceLevelBetween(price, higherLevel, lowerLevel, false);
     }
 
-    function createPriceLevelBetween(uint8 price, uint8 higherLevel, uint8 lowerLevel, OrderType ty) internal {
+    function createPriceLevelBetween(uint8 price, uint8 higherLevel, uint8 lowerLevel, bool isBuyLevel) internal {
         require(price > lowerLevel, "bug(createPriceLevelBetween): price must be higher than lowerLevel");
         require(
             higherLevel == 0 || price < higherLevel,
             "bug(createPriceLevelBetween): price must be lower than higherLevel"
         );
+
+        OrderType ty = isBuyLevel ? OrderType.BUY : OrderType.SELL;
 
         priceLevels[price] = PriceLevel({
             higherLevel: higherLevel,
@@ -227,6 +236,8 @@ contract PriceBook {
             headOrder: 0,
             tailOrder: 0
         });
+
+        emit PriceLevelCreated(price, isBuyLevel);
 
         if (higherLevel != 0) {
             require(priceLevels[higherLevel].ty == ty, "bug(createPriceLevelBetween): higherLevel type mismatch");
@@ -265,6 +276,8 @@ contract PriceBook {
         }
 
         delete priceLevels[price];
+
+        emit PriceLevelRemoved(price, true);
     }
 
     function removeSellLevelUnchecked(uint8 price) internal {
@@ -281,5 +294,7 @@ contract PriceBook {
         }
 
         delete priceLevels[price];
+
+        emit PriceLevelRemoved(price, false);
     }
 }
