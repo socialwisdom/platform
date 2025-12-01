@@ -103,23 +103,23 @@ contract PriceBookTest is Test {
 
     function test_sellLevelsCreation() public {
         // Levels: [75].
-        platform.createSellOrder(75);
+        platform.sellAt(75);
         assertLevels(75, false);
 
         // Levels: [70, 75].
-        platform.createSellOrder(70);
+        platform.sellAt(70);
         assertLevels(70, 75);
 
         // Levels: [70, 75, 80].
-        platform.createSellOrder(80);
+        platform.sellAt(80);
         assertLevels(70, 75, 80);
 
         // Levels: [70, 71, 75, 80].
-        platform.createSellOrder(71);
+        platform.sellAt(71);
         assertLevels(70, 71, 75, 80);
 
         // Levels: [70, 71, 75, 79, 80].
-        platform.createSellOrder(79);
+        platform.sellAt(79);
         assertLevels(70, 71, 75, 79, 80);
     }
 
@@ -556,14 +556,14 @@ library PlatformExt {
         return createOrder(platform, price, volume, true);
     }
 
-    function createSellOrder(PriceBookTest.Platform memory platform, uint8 price)
+    function sellAt(PriceBookTest.Platform memory platform, uint8 price)
         internal
         returns (PriceBookTest.Order memory)
     {
-        return createSellOrder(platform, price, DEFAULT_VOLUME);
+        return sellAt(platform, price, DEFAULT_VOLUME);
     }
 
-    function createSellOrder(PriceBookTest.Platform memory platform, uint8 price, uint256 volume)
+    function sellAt(PriceBookTest.Platform memory platform, uint8 price, uint256 volume)
         internal
         returns (PriceBookTest.Order memory)
     {
