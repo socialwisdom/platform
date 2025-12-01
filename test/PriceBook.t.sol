@@ -307,7 +307,12 @@ library LevelExt {
 
 library OrderExt {
     function refetch(PriceBookTest.Order memory self) internal view returns (PriceBookTest.Order memory) {
-        return PriceBookExt.order(self.priceBook, self.id);
+        PriceBookTest.Order memory _order = PriceBookExt.order(self.priceBook, self.id);
+
+        _order.data.price = self.level.price;
+        _order.level = PriceBookExt.level(self.priceBook, self.level.price);
+
+        return _order;
     }
 
     function exists(PriceBookTest.Order memory self) internal pure returns (bool) {
