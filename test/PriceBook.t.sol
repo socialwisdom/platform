@@ -123,6 +123,42 @@ contract PriceBookTest is Test {
         assertLevels(70, 71, 75, 79, 80);
     }
 
+    function test_sellLevelsRemoval() public {
+        // Levels: [71].
+        Order memory order71 = platform.sellAt(71);
+
+        // Levels: [].
+        order71 = order71.cancel();
+        assertLevels(new uint8[](0));
+
+        assert(!order71.exists());
+        assert(order71.cancelled());
+        assertEq(order71.unfilledVolume, PlatformExt.DEFAULT_VOLUME);
+
+        // Levels: [71].
+        order71 = platform.sellAt(71);
+        assertLevels(71, false);
+
+        // Levels: [70, 71, 75, 79, 80].
+        Order memory order70 = platform.sellAt(70);
+        Order memory order75 = platform.sellAt(75);
+        platform.sellAt(79);
+        Order memory order80 = platform.sellAt(80);
+        assertLevels(70, 71, 75, 79, 80);
+
+        // Levels: [71, 75, 79, 80].
+        order70 = order70.cancel();
+        assertLevels(71, 75, 79, 80);
+
+        // Levels: [71, 75, 79].
+        order80 = order80.cancel();
+        assertLevels(71, 75, 79);
+
+        // Levels: [71, 79].
+        order75 = order75.cancel();
+        assertLevels(71, 79);
+    }
+
     function assertLevels(uint8[] memory prices) internal view {
         assertAllLevels(prices);
 
