@@ -41,6 +41,14 @@ contract PriceBookTest is Test {
         assert(!platform.bestSellOrder().exists());
     }
 
+    function test_tmpLevelsCrossing() public {
+        platform.inner.createOrder(60, true, 1_000);
+
+        // [FAIL: unimplemented: Sell price crosses the best buy price]
+        vm.expectRevert();
+        platform.inner.createOrder(40, false, 1_000);
+    }
+
     function test_buyLevelsCreation() public {
         // Levels: [25].
         platform.buyAt(25);
