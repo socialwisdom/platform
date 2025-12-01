@@ -147,12 +147,7 @@ contract PriceBook {
     function createBuyLevelUnchecked(uint8 price) internal {
         if (price > bestBuyPrice) {
             priceLevels[price] = PriceLevel({
-                higherLevel: 0,
-                lowerLevel: bestBuyPrice,
-                ty: OrderType.BUY,
-                totalVolume: 0,
-                headOrder: 0,
-                tailOrder: 0
+                higherLevel: 0, lowerLevel: bestBuyPrice, ty: OrderType.BUY, totalVolume: 0, headOrder: 0, tailOrder: 0
             });
 
             emit PriceLevelCreated(price, true);
@@ -234,12 +229,7 @@ contract PriceBook {
         OrderType ty = isBuyLevel ? OrderType.BUY : OrderType.SELL;
 
         priceLevels[price] = PriceLevel({
-            higherLevel: higherLevel,
-            lowerLevel: lowerLevel,
-            ty: ty,
-            totalVolume: 0,
-            headOrder: 0,
-            tailOrder: 0
+            higherLevel: higherLevel, lowerLevel: lowerLevel, ty: ty, totalVolume: 0, headOrder: 0, tailOrder: 0
         });
 
         emit PriceLevelCreated(price, isBuyLevel);

@@ -767,10 +767,7 @@ library PlatformExt {
         return createOrder(platform, price, volume, true);
     }
 
-    function sellAt(PriceBookTest.Platform memory platform, uint8 price)
-        internal
-        returns (PriceBookTest.Order memory)
-    {
+    function sellAt(PriceBookTest.Platform memory platform, uint8 price) internal returns (PriceBookTest.Order memory) {
         return sellAt(platform, price, DEFAULT_VOLUME);
     }
 
