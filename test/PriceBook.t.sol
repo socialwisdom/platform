@@ -84,7 +84,6 @@ contract PriceBookTest is Test {
         assertLevels(30, 25, 20);
     }
 
-    // TODO: test removal that doesn't wipe level.
     function test_buyLevelsRemoval() public {
         // Levels: [50].
         Order memory order50 = platform.buyAt(50);
@@ -119,6 +118,38 @@ contract PriceBookTest is Test {
         // Levels: [50, 30].
         order40 = order40.cancel();
         assertLevels(50, 30);
+    }
+
+    function test_buyLevelsRemovalReasonableness() public {
+        // Levels: [50].
+        Order memory order50 = platform.buyAt(50);
+        Order memory secondOrder50 = platform.buyAt(50);
+
+        // Levels: [50].
+        secondOrder50.cancel();
+        assertLevels(50, true);
+
+        // Levels: [60, 50, 40].
+        Order memory order60 = platform.buyAt(60);
+        Order memory order40 = platform.buyAt(40);
+
+        platform.buyAt(60).cancel();
+        assertLevels(60, 50, 40);
+
+        platform.buyAt(40).cancel();
+        assertLevels(60, 50, 40);
+
+        // Levels: [60, 40].
+        order50.cancel();
+        assertLevels(60, 40);
+
+        // Levels: [60].
+        order40.cancel();
+        assertLevels(60, true);
+
+        // Levels: [].
+        order60.cancel();
+        assertLevels(new uint8[](0));
     }
 
     function test_sellLevelsCreation() public {
@@ -198,6 +229,38 @@ contract PriceBookTest is Test {
         // Levels: [71, 79].
         order75 = order75.cancel();
         assertLevels(71, 79);
+    }
+
+    function test_sellLevelsRemovalReasonableness() public {
+        // Levels: [75].
+        Order memory order75 = platform.sellAt(75);
+        Order memory secondOrder75 = platform.sellAt(75);
+
+        // Levels: [75].
+        secondOrder75.cancel();
+        assertLevels(75, false);
+
+        // Levels: [70, 75, 80].
+        Order memory order70 = platform.sellAt(70);
+        Order memory order80 = platform.sellAt(80);
+
+        platform.sellAt(80).cancel();
+        assertLevels(70, 75, 80);
+
+        platform.sellAt(70).cancel();
+        assertLevels(70, 75, 80);
+
+        // Levels: [70, 80].
+        order75.cancel();
+        assertLevels(70, 80);
+
+        // Levels: [80].
+        order70.cancel();
+        assertLevels(80, false);
+
+        // Levels: [].
+        order80.cancel();
+        assertLevels(new uint8[](0));
     }
 
     function assertLevels(uint8[] memory prices) internal view {
