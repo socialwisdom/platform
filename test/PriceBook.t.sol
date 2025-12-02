@@ -145,6 +145,39 @@ contract PriceBookTest is Test {
         assertOrders(order4.id, order5.id);
     }
 
+    function test_sellOrdersCreation() public {
+        // Orders:
+        // 50 => [1].
+        Order memory order1 = platform.sellAt(50);
+        assertOrders(order1.id);
+
+        // Orders:
+        // 50 => [1, 2].
+        Order memory order2 = platform.sellAt(50);
+        assertOrders(order1.id, order2.id);
+
+        // Orders:
+        // 50 => [1, 2, 3].
+        Order memory order3 = platform.sellAt(50);
+        assertOrders(order1.id, order2.id, order3.id);
+
+        // Orders:
+        // 50 => [1, 2, 3].
+        // 60 => [4].
+        Order memory order4 = platform.sellAt(60);
+
+        assertOrders(order1.id, order2.id, order3.id);
+        assertOrders(order4.id);
+
+        // Orders:
+        // 50 => [1, 2, 3].
+        // 60 => [4, 5].
+        Order memory order5 = platform.sellAt(60);
+
+        assertOrders(order1.id, order2.id, order3.id);
+        assertOrders(order4.id, order5.id);
+    }
+
     function test_buyLevelsCreation() public {
         // Levels: [25].
         platform.buyAt(25);
