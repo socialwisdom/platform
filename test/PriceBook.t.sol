@@ -112,6 +112,20 @@ contract PriceBookTest is Test {
         platform.inner.createOrder(40, false, 1_000);
     }
 
+    function test_createOrder_idsIncrement() public {
+        assertEq(platform.buyAt(10).id, 1);
+        assertEq(platform.buyAt(10).id, 2);
+
+        assertEq(platform.sellAt(90).id, 3);
+        assertEq(platform.sellAt(90).id, 4);
+
+        assertEq(platform.buyAt(20).id, 5);
+        assertEq(platform.sellAt(80).id, 6);
+
+        assertEq(platform.buyAt(10).id, 7);
+        assertEq(platform.sellAt(90).id, 8);
+    }
+
     function test_buyOrdersCreation() public {
         // Orders:
         // 50 => [1].
