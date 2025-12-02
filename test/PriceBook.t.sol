@@ -159,6 +159,31 @@ contract PriceBookTest is Test {
         assertOrders(order4.id, order5.id);
     }
 
+    function test_buyOrdersRemoval() public {
+        // Orders:
+        // 50 => [1, 2, 3, 4].
+        Order memory order1 = platform.buyAt(50);
+        Order memory order2 = platform.buyAt(50);
+        Order memory order3 = platform.buyAt(50);
+        Order memory order4 = platform.buyAt(50);
+        assertOrders(order1.id, order2.id, order3.id, order4.id);
+
+        // Orders:
+        // 50 => [2, 3, 4].
+        order1.cancel();
+        assertOrders(order2.id, order3.id, order4.id);
+
+        // Orders:
+        // 50 => [2, 4].
+        order3.cancel();
+        assertOrders(order2.id, order4.id);
+
+        // Orders:
+        // 50 => [2].
+        order4.cancel();
+        assertOrders(order2.id);
+    }
+
     function test_sellOrdersCreation() public {
         // Orders:
         // 50 => [1].
@@ -190,6 +215,31 @@ contract PriceBookTest is Test {
 
         assertOrders(order1.id, order2.id, order3.id);
         assertOrders(order4.id, order5.id);
+    }
+
+    function test_sellOrdersRemoval() public {
+        // Orders:
+        // 50 => [1, 2, 3, 4].
+        Order memory order1 = platform.sellAt(50);
+        Order memory order2 = platform.sellAt(50);
+        Order memory order3 = platform.sellAt(50);
+        Order memory order4 = platform.sellAt(50);
+        assertOrders(order1.id, order2.id, order3.id, order4.id);
+
+        // Orders:
+        // 50 => [2, 3, 4].
+        order1.cancel();
+        assertOrders(order2.id, order3.id, order4.id);
+
+        // Orders:
+        // 50 => [2, 4].
+        order3.cancel();
+        assertOrders(order2.id, order4.id);
+
+        // Orders:
+        // 50 => [2].
+        order4.cancel();
+        assertOrders(order2.id);
     }
 
     function test_buyLevelsCreation() public {
