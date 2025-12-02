@@ -162,10 +162,10 @@ contract PriceBookTest is Test {
     function test_buyOrdersRemoval() public {
         // Orders:
         // 50 => [1, 2, 3, 4].
-        Order memory order1 = platform.buyAt(50);
-        Order memory order2 = platform.buyAt(50);
-        Order memory order3 = platform.buyAt(50);
-        Order memory order4 = platform.buyAt(50);
+        Order memory order1 = platform.buyAt(50, 1_000);
+        Order memory order2 = platform.buyAt(50, 2_000);
+        Order memory order3 = platform.buyAt(50, 3_000);
+        Order memory order4 = platform.buyAt(50, 4_000);
         assertOrders(order1.id, order2.id, order3.id, order4.id);
 
         // Orders:
@@ -220,10 +220,10 @@ contract PriceBookTest is Test {
     function test_sellOrdersRemoval() public {
         // Orders:
         // 50 => [1, 2, 3, 4].
-        Order memory order1 = platform.sellAt(50);
-        Order memory order2 = platform.sellAt(50);
-        Order memory order3 = platform.sellAt(50);
-        Order memory order4 = platform.sellAt(50);
+        Order memory order1 = platform.sellAt(50, 1_000);
+        Order memory order2 = platform.sellAt(50, 2_000);
+        Order memory order3 = platform.sellAt(50, 3_000);
+        Order memory order4 = platform.sellAt(50, 4_000);
         assertOrders(order1.id, order2.id, order3.id, order4.id);
 
         // Orders:
@@ -470,6 +470,7 @@ contract PriceBookTest is Test {
         }
 
         uint8 price = platform.order(ids[0]).data.price;
+        uint256 volume = 0;
 
         for (uint256 i = 0; i < ids.length; i++) {
             for (uint256 j = i + 1; j < ids.length; j++) {
@@ -481,6 +482,7 @@ contract PriceBookTest is Test {
             assert(order.exists());
             assertEq(order.id, ids[i]);
             assertEq(order.data.price, price);
+            volume += order.data.volume;
 
             if (i == 0) {
                 assert(!order.prev().exists());
@@ -496,6 +498,8 @@ contract PriceBookTest is Test {
 
             console.log("Asserting order id: ", order.id);
         }
+
+        assertEq(platform.level(price).data.totalVolume, volume);
     }
 
     function assertOrders(uint256 id0) internal view {
