@@ -7,6 +7,8 @@ contract PriceBook {
     error BadVolume();
     error Unauthorized();
 
+    event OrderCreated(uint256 orderId);
+    event OrderCancelled(uint256 orderId);
     event PriceLevelCreated(uint8 price, bool isBuyLevel);
     event PriceLevelRemoved(uint8 price, bool isBuyLevel);
 
@@ -87,6 +89,8 @@ contract PriceBook {
 
         orders[id] = Order({maker: maker, price: price, volume: volume, prevOrder: level.tailOrder, nextOrder: 0});
 
+        emit OrderCreated(id);
+
         level.totalVolume += volume;
         level.tailOrder = id;
 
@@ -122,6 +126,8 @@ contract PriceBook {
         }
 
         delete orders[orderId];
+
+        emit OrderCancelled(orderId);
 
         return volume;
     }

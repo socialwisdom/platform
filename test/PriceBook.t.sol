@@ -734,6 +734,10 @@ library PlatformExt {
     {
         PriceBookTest.Order memory _order = order(platform, orderId);
 
+        platform.vm.expectEmit();
+
+        emit PriceBook.OrderCancelled(orderId);
+
         if (_order.level.data.totalVolume == _order.data.volume && _order.level.exists()) {
             if (_order.level.isBuy()) {
                 console.log(" *** Cancelling order that will remove buy level at price: ", _order.level.price);
@@ -741,7 +745,6 @@ library PlatformExt {
                 console.log(" *** Cancelling order that will remove sell level at price: ", _order.level.price);
             }
 
-            platform.vm.expectEmit();
             emit PriceBook.PriceLevelRemoved(_order.level.price, _order.level.isBuy());
         }
 
@@ -784,16 +787,18 @@ library PlatformExt {
     {
         PriceBookTest.Level memory _level = level(platform, price);
 
+        platform.vm.expectEmit();
+
         if (!_level.exists()) {
             if (isBuy) {
                 console.log(" *** Buy level will be created at price: ", price);
             } else {
                 console.log(" *** Sell level will be created at price: ", price);
             }
-
-            platform.vm.expectEmit();
             emit PriceBook.PriceLevelCreated(price, isBuy);
         }
+
+        emit PriceBook.OrderCreated(platform.inner.nextOrderId());
 
         PriceBookTest.Order memory _order = order(platform, platform.inner.createOrder(price, isBuy, volume));
 
