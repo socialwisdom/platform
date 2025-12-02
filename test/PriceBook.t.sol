@@ -415,13 +415,17 @@ contract PriceBookTest is Test {
     }
 
     function assertOrders(uint256[] memory ids) internal view {
-        uint8 price = 0;
-
-        if (ids.length > 0) {
-            price = platform.order(ids[0]).data.price;
+        if (ids.length == 0) {
+            return;
         }
 
+        uint8 price = platform.order(ids[0]).data.price;
+
         for (uint256 i = 0; i < ids.length; i++) {
+            for (uint256 j = i + 1; j < ids.length; j++) {
+                require(ids[i] < ids[j], "assertOrders: impossible ordering or duplicate ids");
+            }
+
             Order memory order = platform.order(ids[i]);
 
             assert(order.exists());
