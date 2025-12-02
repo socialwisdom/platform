@@ -104,12 +104,45 @@ contract PriceBookTest is Test {
         platform.inner.cancelOrder(1);
     }
 
-    function test_tmpLevelsCrossing() public {
+    function test_tmp_levelsCrossing() public {
         platform.inner.createOrder(60, true, 1_000);
 
         // [FAIL: unimplemented: Sell price crosses the best buy price]
         vm.expectRevert();
         platform.inner.createOrder(40, false, 1_000);
+    }
+
+    function test_buyOrdersCreation() public {
+        // Orders:
+        // 50 => [1].
+        Order memory order1 = platform.buyAt(50);
+        assertOrders(order1.id);
+
+        // Orders:
+        // 50 => [1, 2].
+        Order memory order2 = platform.buyAt(50);
+        assertOrders(order1.id, order2.id);
+
+        // Orders:
+        // 50 => [1, 2, 3].
+        Order memory order3 = platform.buyAt(50);
+        assertOrders(order1.id, order2.id, order3.id);
+
+        // Orders:
+        // 60 => [4].
+        // 50 => [1, 2, 3].
+        Order memory order4 = platform.buyAt(60);
+
+        assertOrders(order1.id, order2.id, order3.id);
+        assertOrders(order4.id);
+
+        // Orders:
+        // 60 => [4, 5].
+        // 50 => [1, 2, 3].
+        Order memory order5 = platform.buyAt(60);
+
+        assertOrders(order1.id, order2.id, order3.id);
+        assertOrders(order4.id, order5.id);
     }
 
     function test_buyLevelsCreation() public {
@@ -332,6 +365,70 @@ contract PriceBookTest is Test {
         // Levels: [].
         order80.cancel();
         assertLevels(new uint8[](0));
+    }
+
+    function assertOrders(uint256[] memory ids) internal view {
+        uint8 price = 0;
+
+        if (ids.length > 0) {
+            price = platform.order(ids[0]).data.price;
+        }
+
+        for (uint256 i = 0; i < ids.length; i++) {
+            Order memory order = platform.order(ids[i]);
+
+            assert(order.exists());
+            assertEq(order.id, ids[i]);
+            assertEq(order.data.price, price);
+
+            if (i == 0) {
+                assert(!order.prev().exists());
+                assert(order.isHead());
+                assert(platform.level(price).data.headOrder == order.id);
+            }
+
+            if (i == ids.length - 1) {
+                assert(!order.next().exists());
+                assert(order.isTail());
+                assert(platform.level(price).data.tailOrder == order.id);
+            }
+
+            console.log("Asserting order id: ", order.id);
+        }
+    }
+
+    function assertOrders(uint256 id0) internal view {
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = id0;
+
+        assertOrders(ids);
+    }
+
+    function assertOrders(uint256 id0, uint256 id1) internal view {
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = id0;
+        ids[1] = id1;
+
+        assertOrders(ids);
+    }
+
+    function assertOrders(uint256 id0, uint256 id1, uint256 id2) internal view {
+        uint256[] memory ids = new uint256[](3);
+        ids[0] = id0;
+        ids[1] = id1;
+        ids[2] = id2;
+
+        assertOrders(ids);
+    }
+
+    function assertOrders(uint256 id0, uint256 id1, uint256 id2, uint256 id3) internal view {
+        uint256[] memory ids = new uint256[](4);
+        ids[0] = id0;
+        ids[1] = id1;
+        ids[2] = id2;
+        ids[3] = id3;
+
+        assertOrders(ids);
     }
 
     function assertLevels(uint8[] memory prices) internal view {
@@ -651,7 +748,9 @@ library OrderExt {
     {
         PriceBookTest.Order memory nextOrder = self.platform.order(self.data.nextOrder);
 
-        require(nextOrder.data.prevOrder == self.id, "OrderExt: next order's prevOrder mismatch");
+        if (exists(nextOrder)) {
+            require(nextOrder.data.prevOrder == self.id, "OrderExt: next order's prevOrder mismatch");
+        }
 
         return nextOrder;
     }
@@ -677,7 +776,9 @@ library OrderExt {
     {
         PriceBookTest.Order memory prevOrder = self.platform.order(self.data.prevOrder);
 
-        require(prevOrder.data.nextOrder == self.id, "OrderExt: prev order's nextOrder mismatch");
+        if (exists(prevOrder)) {
+            require(prevOrder.data.nextOrder == self.id, "OrderExt: prev order's nextOrder mismatch");
+        }
 
         return prevOrder;
     }
