@@ -42,19 +42,21 @@ contract OrderBookTest is Test {
         assert(dapp.orderBook.MIN_VOLUME() <= DappExt.DEFAULT_VOLUME);
     }
 
-    function test_buy_1() public {
-        Order memory order = dapp.buy(50);
-        order = dapp.buy(50);
-        order = dapp.sell(50, 100);
-        order = dapp.sell(60);
-        order = dapp.sell(40);
+    function test_buy_sample() public {
+        for (uint8 price = 10; price <= 30; price++) {
+            for (uint8 i = 0; i < 10; i++) {
+                dapp.sell(price);
+            }
+        }
+
+        dapp.buy(50, DappExt.DEFAULT_VOLUME * 1_000);
     }
 }
 
 library DappExt {
     using DappExt for OrderBookTest.Dapp;
 
-    uint256 constant DEFAULT_VOLUME = 1_000;
+    uint256 constant DEFAULT_VOLUME = 12_345;
 
     function buy(OrderBookTest.Dapp memory self, uint8 price) internal returns (OrderBookTest.Order memory) {
         return self.buy(price, DEFAULT_VOLUME);

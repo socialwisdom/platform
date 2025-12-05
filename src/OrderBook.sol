@@ -62,15 +62,14 @@ contract OrderBook {
 
         if (price > bestBuyPrice) {
             buyLevels.createBest(price, bestBuyPrice, orderId);
-            bestBuyPrice = price;
-
             orders.createBuyHead(orderId, price, msg.sender, volume);
+
+            bestBuyPrice = price;
         } else if (buyLevels[price].active) {
             orders.createBuyTail(orderId, price, msg.sender, volume, buyLevels);
         } else {
             buyLevels.createBuy(price, bestBuyPrice, orderId);
-
-            orders.createBuyTail(orderId, price, msg.sender, volume, buyLevels);
+            orders.createBuyHead(orderId, price, msg.sender, volume);
         }
 
         emit OrderCreated(orderId, price, true, volume);
@@ -106,15 +105,14 @@ contract OrderBook {
 
         if (price < bestSellPrice || bestSellPrice == 0) {
             sellLevels.createBest(price, bestSellPrice, orderId);
-            bestSellPrice = price;
-
             orders.createSellHead(orderId, price, msg.sender, volume);
+
+            bestSellPrice = price;
         } else if (sellLevels[price].active) {
             orders.createSellTail(orderId, price, msg.sender, volume, sellLevels);
         } else {
             sellLevels.createSell(price, bestSellPrice, orderId);
-
-            orders.createSellTail(orderId, price, msg.sender, volume, sellLevels);
+            orders.createSellHead(orderId, price, msg.sender, volume);
         }
 
         emit OrderCreated(orderId, price, false, volume);

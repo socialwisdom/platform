@@ -32,7 +32,7 @@ library OrdersLib {
 
     function createHead(mapping (uint256 => Order) storage orders, uint256 id, uint8 price, address maker, uint256 volume, bool isBuy) internal {
         Order storage order = orders[id];
-        /* dev */ require(!order.active);
+        /* dev */ require(!order.active, "orders.createHead: active order");
 
         order.active = true;
         order.price = price;
@@ -54,10 +54,10 @@ library OrdersLib {
 
     function createTail(mapping (uint256 => Order) storage orders, uint256 id, uint8 price, address maker, uint256 volume, bool isBuy, mapping (uint8 => Level) storage levels) internal {
         Level storage level = levels[price];
-        /* dev */ require(level.active);
+        /* dev */ require(level.active, "orders.createTail: inactive level");
 
         Order storage order = orders[id];
-        /* dev */ require(!order.active);
+        /* dev */ require(!order.active, "orders.createTail: active order");
 
         order.active = true;
         order.price = price;
@@ -69,8 +69,8 @@ library OrdersLib {
         }
 
         orders[level.tailOrder].nextOrder = id;
-        /* dev */ require(orders[level.tailOrder].active);
-        /* dev */ require(orders[level.tailOrder].isBuy == isBuy);
+        /* dev */ require(orders[level.tailOrder].active, "orders.createTail: inactive tail order");
+        /* dev */ require(orders[level.tailOrder].isBuy == isBuy, "orders.createTail: mismatched order side");
 
         level.tailOrder = id;
     }
@@ -79,8 +79,8 @@ library OrdersLib {
     /// @return unfilledVolume. Remaining volume to fill into other orders.
     function fill(mapping (uint256 => Order) storage orders, uint256 id, uint256 volume) internal returns (uint256, uint256) {
         Order storage order = orders[id];
-        /* dev */ require(order.active);
-        /* dev */ require(volume > 0);
+        /* dev */ require(order.active, "orders.fill: inactive order");
+        /* dev */ require(volume > 0, "orders.fill: non-positive volume");
 
         if (order.volume > volume) {
             order.volume -= volume;
@@ -96,8 +96,8 @@ library OrdersLib {
     /// @return (bestChanged, newBestPrice, unfilledVolume). If bestChanged is true, newBestPrice is the new best price level after removal should be set.
     function remove(mapping (uint256 => Order) storage orders, uint256 id, mapping (uint8 => Level) storage levels) internal returns (bool, uint8, uint256) {
         Order storage order = orders[id];
-        /* dev */ require(order.active);
-        /* dev */ require(levels[order.price].active);
+        /* dev */ require(order.active, "orders.remove: inactive order");
+        /* dev */ require(levels[order.price].active, "orders.remove: inactive level for order");
 
         uint256 prevId = order.prevOrder;
         uint256 nextId = order.nextOrder;
@@ -114,19 +114,19 @@ library OrdersLib {
             return (bestChanged, newBestPrice, unfilledVolume);
         } else if (prevId != 0 && nextId != 0) {
             // Some middle order at the level.
-            /* dev */ require(orders[prevId].active);
+            /* dev */ require(orders[prevId].active, "orders.remove: inactive prev order for middle order");
             orders[prevId].nextOrder = nextId;
-            /* dev */ require(orders[nextId].active);
+            /* dev */ require(orders[nextId].active, "orders.remove: inactive next order for middle order");
             orders[nextId].prevOrder = prevId;
         } else if (prevId == 0) {
             // Head order at the level.
             levels[order.price].headOrder = nextId;
-            /* dev */ require(orders[nextId].active);
+            /* dev */ require(orders[nextId].active, "orders.remove: inactive next order for head order");
             orders[nextId].prevOrder = 0;
         } else {
             // Tail order at the level.
             levels[order.price].tailOrder = prevId;
-            /* dev */ require(orders[prevId].active);
+            /* dev */ require(orders[prevId].active, "orders.remove: inactive prev order for tail order");
             orders[prevId].nextOrder = 0;
         }
 

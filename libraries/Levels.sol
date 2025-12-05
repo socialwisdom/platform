@@ -30,12 +30,12 @@ library LevelsLib {
         level.tailOrder = orderId;
 
         if (prevLevel != 0) {
-            /* dev */ require(levels[prevLevel].active);
+            /* dev */ require(levels[prevLevel].active, "levels.createBetween: inactive prev level");
             levels[prevLevel].nextLevel = price;
         }
 
         if (nextLevel != 0) {
-            /* dev */ require(levels[nextLevel].active);
+            /* dev */ require(levels[nextLevel].active, "levels.createBetween: inactive next level");
             levels[nextLevel].prevLevel = price;
         }
     }
@@ -63,19 +63,19 @@ library LevelsLib {
     /// @return (bestChanged, nextLevel).
     function remove(mapping (uint8 => Level) storage levels, uint8 price) internal returns (bool, uint8) {
         Level storage level = levels[price];
-        /* dev */ require(level.active);
+        /* dev */ require(level.active, "levels.remove: inactive level");
 
         level.active = false;
         level.headOrder = 0;
         level.tailOrder = 0;
 
         if (level.nextLevel != 0) {
-            /* dev */ require(levels[level.nextLevel].active);
+            /* dev */ require(levels[level.nextLevel].active, "levels.remove: inactive next level");
             levels[level.nextLevel].prevLevel = level.prevLevel;
         }
 
         if (level.prevLevel != 0) {
-            /* dev */ require(levels[level.prevLevel].active);
+            /* dev */ require(levels[level.prevLevel].active, "levels.remove: inactive prev level");
             levels[level.prevLevel].nextLevel = level.nextLevel;
         }
 
