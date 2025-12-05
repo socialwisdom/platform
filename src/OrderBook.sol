@@ -20,6 +20,10 @@ contract OrderBook {
 
     event OrderCancelled(uint256 orderId, uint8 indexed price, bool indexed isBuy, uint256 unfilledVolume);
 
+    event OrderFilled(
+        uint256 indexed orderId, uint8 indexed price, bool indexed isBuy, uint256 volumeFilled, uint256 remainingVolume
+    );
+
     uint256 public constant MIN_VOLUME = 10;
 
     mapping(uint8 => Level) public buyLevels;
@@ -38,8 +42,27 @@ contract OrderBook {
 
         uint256 orderId = nextOrderId++;
 
+        // Immediately match with existing sell orders.
+        // TODO: optimize by entire level matching
+        while (price >= bestSellPrice && bestSellPrice != 0) {
+            uint256 orderToFill = sellLevels[bestSellPrice].headOrder;
+
+            (uint256 remainingVolume, uint256 unfilledVolume) = orders.fill(orderToFill, volume);
+
+            emit OrderFilled(orderToFill, bestSellPrice, false, volume - unfilledVolume, remainingVolume);
+
+            if (remainingVolume == 0) _removeOrder(orderToFill, false);
+
+            if (unfilledVolume == 0) {
+                return 0;
+            } else {
+                volume = unfilledVolume;
+            }
+        }
+
         if (price > bestBuyPrice) {
             buyLevels.createBest(price, bestBuyPrice, orderId);
+            bestBuyPrice = price;
 
             orders.createBuyHead(orderId, price, msg.sender, volume);
         } else if (buyLevels[price].active) {
@@ -61,10 +84,29 @@ contract OrderBook {
 
         if (volume < MIN_VOLUME) revert InsufficientVolume();
 
+        // Immediately match with existing buy orders.
+        // TODO: optimize by entire level matching
+        while (price <= bestBuyPrice) {
+            uint256 orderToFill = buyLevels[bestBuyPrice].headOrder;
+
+            (uint256 remainingVolume, uint256 unfilledVolume) = orders.fill(orderToFill, volume);
+
+            emit OrderFilled(orderToFill, bestBuyPrice, true, volume - unfilledVolume, remainingVolume);
+
+            if (remainingVolume == 0) _removeOrder(orderToFill, true);
+
+            if (unfilledVolume == 0) {
+                return 0;
+            } else {
+                volume = unfilledVolume;
+            }
+        }
+
         uint256 orderId = nextOrderId++;
 
         if (price < bestSellPrice || bestSellPrice == 0) {
             sellLevels.createBest(price, bestSellPrice, orderId);
+            bestSellPrice = price;
 
             orders.createSellHead(orderId, price, msg.sender, volume);
         } else if (sellLevels[price].active) {
@@ -89,22 +131,26 @@ contract OrderBook {
         uint8 price = orders[orderId].price;
         bool isBuy = orders[orderId].isBuy;
 
-        uint256 unfilledVolume;
-
-        if (orders[orderId].isBuy) {
-            (bool bestChanged, uint8 newBestPrice, uint256 _unfilledVolume) = orders.remove(orderId, buyLevels);
-            unfilledVolume = _unfilledVolume;
-
-            if (bestChanged) bestBuyPrice = newBestPrice;
-        } else {
-            (bool bestChanged, uint8 newBestPrice, uint256 _unfilledVolume) = orders.remove(orderId, sellLevels);
-            unfilledVolume = _unfilledVolume;
-
-            if (bestChanged) bestSellPrice = newBestPrice;
-        }
+        uint256 unfilledVolume = _removeOrder(orderId, isBuy);
 
         emit OrderCancelled(orderId, price, isBuy, unfilledVolume);
 
         return unfilledVolume;
+    }
+
+    function _removeOrder(uint256 orderId, bool isBuy) internal returns (uint256) {
+        if (isBuy) {
+            (bool bestChanged, uint8 newBestPrice, uint256 _unfilledVolume) = orders.remove(orderId, buyLevels);
+
+            if (bestChanged) bestBuyPrice = newBestPrice;
+
+            return _unfilledVolume;
+        } else {
+            (bool bestChanged, uint8 newBestPrice, uint256 _unfilledVolume) = orders.remove(orderId, sellLevels);
+
+            if (bestChanged) bestSellPrice = newBestPrice;
+
+            return _unfilledVolume;
+        }
     }
 }

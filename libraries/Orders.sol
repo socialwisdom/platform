@@ -75,21 +75,22 @@ library OrdersLib {
         level.tailOrder = id;
     }
 
-    /// @return unfilled volume. If 0, order is completely filled and should be removed.
-    function fill(mapping (uint256 => Order) storage orders, uint256 id, uint256 volume) internal returns (uint256) {
+    /// @return remainingVolume. Remaining volume in the order after fill.
+    /// @return unfilledVolume. Remaining volume to fill into other orders.
+    function fill(mapping (uint256 => Order) storage orders, uint256 id, uint256 volume) internal returns (uint256, uint256) {
         Order storage order = orders[id];
         /* dev */ require(order.active);
         /* dev */ require(volume > 0);
 
         if (order.volume > volume) {
             order.volume -= volume;
-            return 0;
+            return (order.volume, 0);
         }
 
         uint256 unfilledVolume = volume - order.volume;
         order.volume = 0;
 
-        return unfilledVolume;
+        return (0, unfilledVolume);
     }
 
     /// @return (bestChanged, newBestPrice, unfilledVolume). If bestChanged is true, newBestPrice is the new best price level after removal should be set.

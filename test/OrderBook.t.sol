@@ -41,6 +41,14 @@ contract OrderBookTest is Test {
         assert(dapp.orderBook.nextOrderId() == 1);
         assert(dapp.orderBook.MIN_VOLUME() <= DappExt.DEFAULT_VOLUME);
     }
+
+    function test_buy_1() public {
+        Order memory order = dapp.buy(50);
+        order = dapp.buy(50);
+        order = dapp.sell(50, 100);
+        order = dapp.sell(60);
+        order = dapp.sell(40);
+    }
 }
 
 library DappExt {
