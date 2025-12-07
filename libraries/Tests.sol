@@ -108,6 +108,14 @@ library TestsLib {
         return self.platform.bestPrice(self.id, _isBuy);
     }
 
+    function active(TestMarket memory self) internal view returns (bool) {
+        return self.params().active;
+    }
+
+    function minVolume(TestMarket memory self) internal view returns (uint256) {
+        return self.params().minVolume;
+    }
+
     function params(TestMarket memory self) internal view returns (OrderBookParams memory) {
         return self.platform.params(self.id);
     }
