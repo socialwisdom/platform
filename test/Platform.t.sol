@@ -1,28 +1,42 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
+import {console2} from "forge-std/console2.sol";
 import {Platform} from "../src/Platform.sol";
 import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
+import {TestsLib, TestPlatform, TestMarket, TestLevel, TestOrder} from "../libraries/Tests.sol";
 
 contract PlatformTest is Test {
-    Platform public platform;
+    using TestsLib for TestPlatform;
+    using TestsLib for TestMarket;
+    using TestsLib for TestLevel;
+    using TestsLib for TestOrder;
+
+    TestPlatform public platform;
 
     function setUp() public {
         vm.startPrank(address(0x42));
 
-        platform = new Platform();
+        platform = TestPlatform({platform: new Platform(), vm: vm});
     }
 
     function test_buy_check() public {
-        uint256 marketId = platform.createMarket();
+        TestMarket memory market = platform.createMarket();
 
         for (uint8 price = 10; price <= 30; price++) {
             for (uint8 i = 0; i < 10; i++) {
-                platform.sell(marketId, price, 1_000);
+                market.sell(price);
             }
         }
 
-        platform.buy(marketId, 50, 1_234_567);
+        uint256 orderVolume = 1_234_567;
+
+        console2.log("Best sell price before buy:", market.bestSellPrice());
+        console2.log("Order volume:", orderVolume);
+
+        TestOrder memory order = market.buy(50, orderVolume);
+
+        console2.log("Best sell price after buy:", market.bestSellPrice());
+        console2.log("Order volume:", order.volume());
     }
 }
