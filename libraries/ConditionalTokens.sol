@@ -28,6 +28,20 @@ library ConditionalTokensLibrary {
         return conditionalTokens.getConditionId(oracle, questionId, 2);
     }
 
+    function buyBoth(
+        IConditionalTokens conditionalTokens,
+        IERC20 collateral,
+        bytes32 conditionId,
+        uint256 amount
+    ) internal {
+        uint[] memory partition = new uint[](2);
+
+        partition[0] = YES;
+        partition[1] = NO;
+
+        conditionalTokens.splitPosition(collateral, bytes32(0), conditionId, partition, amount);
+    }
+
     function balanceYes(
         IConditionalTokens conditionalTokens,
         IERC20 collateral,
@@ -69,7 +83,6 @@ library ConditionalTokensLibrary {
     function resolveAsYes(
         IConditionalTokens conditionalTokens,
         bytes32 conditionId
-        // TODO: add fee here
     ) internal {
         conditionalTokens.resolveCondition(conditionId, true);
     }
@@ -77,16 +90,15 @@ library ConditionalTokensLibrary {
     function resolveAsNo(
         IConditionalTokens conditionalTokens,
         bytes32 conditionId
-        // TODO: add fee here
     ) internal {
         conditionalTokens.resolveCondition(conditionId, false);
     }
 
+        // TODO: add fee here
     function resolveCondition(
         IConditionalTokens conditionalTokens,
         bytes32 conditionId,
         bool yesWon
-        // TODO: add fee here
     ) internal {
         uint256[] memory payouts = new uint256[](2);
 
@@ -99,5 +111,34 @@ library ConditionalTokensLibrary {
         }
 
         conditionalTokens.reportPayouts(conditionId, payouts);
+    }
+
+    function redeemYes(
+        IConditionalTokens conditionalTokens,
+        IERC20 collateral,
+        bytes32 conditionId
+    ) internal {
+        conditionalTokens.redeemWinnings(collateral, conditionId, true);
+    }
+
+    function redeemNo(
+        IConditionalTokens conditionalTokens,
+        IERC20 collateral,
+        bytes32 conditionId
+    ) internal {
+        conditionalTokens.redeemWinnings(collateral, conditionId, false);
+    }
+
+    function redeemWinnings(
+        IConditionalTokens conditionalTokens,
+        IERC20 collateral,
+        bytes32 conditionId,
+        bool yesWon
+    ) internal {
+        uint[] memory indexSets = new uint[](1);
+
+        indexSets[0] = yesWon ? YES : NO;
+
+        conditionalTokens.redeemPositions(collateral, bytes32(0), conditionId, indexSets);
     }
 }
