@@ -2,6 +2,8 @@
 pragma solidity ^0.8.20;
 
 import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+import {IConditionalTokens} from "../interfaces/IConditionalTokens.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPlatform} from "../interfaces/IPlatform.sol";
 import {Level} from "../libraries/Levels.sol";
 import {Order} from "../libraries/Orders.sol";
@@ -32,9 +34,37 @@ contract Platform is IPlatform, Ownable, ERC1155Holder {
         return marketId;
     }
 
+    /// @return marketId. The ID of the created market.
+    function createMarketWithOutcomes(IConditionalTokens conditionalTokens, IERC20 collateral, address oracle)
+        external
+        onlyOwner
+        returns (uint256)
+    {
+        require(address(conditionalTokens) != address(0), "conditional tokens is zero address");
+        require(address(collateral) != address(0), "collateral is zero address");
+
+        uint256 marketId = nextMarketId++;
+
+        markets[marketId].initializeWithOutcomes(marketId, DEFAULT_MIN_VOLUME, conditionalTokens, collateral, oracle);
+
+        return marketId;
+    }
+
     /// @dev Closes the market with the given ID.
     function closeMarket(uint256 marketId) external onlyOwner {
         return markets[marketId].finish();
+    }
+
+    /// @dev Closes the market with the given ID and sets the winning outcome.
+    function closeMarketWithOutcomes(uint256 marketId, bool yesWon) external onlyOwner {
+        markets[marketId].finish();
+
+        return markets[marketId].setOutcomes(yesWon);
+    }
+
+    /// @dev Sets the outcome of the finished market with the given ID.
+    function setMarketOutcome(uint256 marketId, bool yesWon) external {
+        return markets[marketId].setOutcomes(yesWon);
     }
 
     /// @return orderId. The ID of the created buy order. Zero if was filled immediately.

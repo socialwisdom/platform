@@ -77,7 +77,7 @@ library OrderBookLib {
             require(address(collateral) != address(0), "collateral is zero address, while conditional tokens is set");
 
             orderBook.outcomes.conditionId = conditionalTokens.createBinaryCondition(
-                oracle,
+                address(this),
                 bytes32(id)
             );
 
