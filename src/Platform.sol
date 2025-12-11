@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
+import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import {IPlatform} from "../interfaces/IPlatform.sol";
 import {Level} from "../libraries/Levels.sol";
 import {Order} from "../libraries/Orders.sol";
 import {OrderBook, OrderBookLib, OrderBookParams} from "../libraries/OrderBook.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Platform is IPlatform, Ownable {
+contract Platform is IPlatform, Ownable, ERC1155Holder {
     using OrderBookLib for OrderBook;
 
     /// @dev Created markets mapped by their ID.

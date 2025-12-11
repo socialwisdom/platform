@@ -14,6 +14,7 @@ struct OrderBookOutcomes {
     address oracle;
     // TODO: impl uint8 winnerFee;
     bytes32 conditionId;
+    uint256 yesPositionId;
 }
 
 struct OrderBookParams {
@@ -73,10 +74,23 @@ library OrderBookLib {
         orderBook.outcomes.oracle = oracle;
 
         if (address(conditionalTokens) != address(0)) {
+            require(address(collateral) != address(0), "collateral is zero address, while conditional tokens is set");
+
             orderBook.outcomes.conditionId = conditionalTokens.createBinaryCondition(
                 oracle,
                 bytes32(id)
             );
+
+            orderBook.outcomes.yesPositionId = conditionalTokens.getPositionId(
+                collateral,
+                conditionalTokens.getCollectionId(
+                    bytes32(0),
+                    orderBook.outcomes.conditionId,
+                    ConditionalTokensLib.YES
+                )
+            );
+        } else {
+            require(address(collateral) == address(0), "collateral is not zero address, while conditional tokens is not set");
         }
 
         orderBook.nextOrderId = 1;
@@ -102,13 +116,18 @@ library OrderBookLib {
         );
     }
 
-    /// @return orderId. The ID of the created buy order. It may be filled immediately.
+    /// @return orderId. The ID of the created buy order for YES outcome. It may be filled immediately.
     function buy(OrderBook storage orderBook, address maker, uint8 price, uint256 volume) internal whileActive(orderBook) returns (uint256) {
+        // TODO: refund unused collateral.
+        orderBook._receiveCollateral(maker, volume * price);
+
         return orderBook._placeOrder(maker, price, volume, true);
     }
 
-    /// @return orderId. The ID of the created sell order. It may be filled immediately.
+    /// @return orderId. The ID of the created sell order for YES outcome. It may be filled immediately.
     function sell(OrderBook storage orderBook, address maker, uint8 price, uint256 volume) internal whileActive(orderBook) returns (uint256) {
+        orderBook._receiveYes(maker, volume);
+
         return orderBook._placeOrder(maker, price, volume, false);
     }
 
@@ -132,12 +151,56 @@ library OrderBookLib {
             unfilledVolume
         );
 
+        if (isBuy) {
+            // Refund collateral
+            orderBook._sendCollateral(order.maker, unfilledVolume * order.price);
+        } else {
+            // Refund YES outcome tokens
+            orderBook._sendYes(order.maker, unfilledVolume);
+        }
+
         return unfilledVolume;
     }
 
     modifier whileActive(OrderBook storage orderBook) {
         if (!orderBook.params.active) revert IPlatform.InactiveMarket();
         _;
+    }
+
+    function _receiveYes(OrderBook storage orderBook, address from, uint256 amount) internal {
+        if (address(orderBook.outcomes.conditionalTokens) == address(0)) return;
+
+        orderBook.outcomes.conditionalTokens.safeTransferFrom(
+            from,
+            address(this),
+            orderBook.outcomes.yesPositionId,
+            amount,
+            ""
+        );
+    }
+
+    function _sendYes(OrderBook storage orderBook, address to, uint256 amount) internal {
+        if (address(orderBook.outcomes.conditionalTokens) == address(0)) return;
+
+        orderBook.outcomes.conditionalTokens.safeTransferFrom(
+            address(this),
+            to,
+            orderBook.outcomes.yesPositionId,
+            amount,
+            ""
+        );
+    }
+
+    function _receiveCollateral(OrderBook storage orderBook, address from, uint256 amount) internal {
+        if (address(orderBook.outcomes.collateral) == address(0)) return;
+
+        require(orderBook.outcomes.collateral.transferFrom(from, address(this), amount), "collateral receive failed");
+    }
+
+    function _sendCollateral(OrderBook storage orderBook, address to, uint256 amount) internal {
+        if (address(orderBook.outcomes.collateral) == address(0)) return;
+
+        require(orderBook.outcomes.collateral.transfer(to, amount), "collateral send failed");
     }
 
     function _placeOrder(OrderBook storage orderBook, address maker, uint8 price, uint256 volume, bool isBuy) internal returns (uint256) {
@@ -172,6 +235,16 @@ library OrderBookLib {
             unfilledVolume
         );
 
+        uint256 volumeFilled = volume - unfilledVolume;
+
+        if (isBuy) {
+            // Send YES outcome tokens to buyer
+            orderBook._sendYes(maker, volumeFilled);
+        } else {
+            // Send collateral to seller
+            orderBook._sendCollateral(maker, volumeFilled * price);
+        }
+
         return orderId;
     }
 
@@ -179,17 +252,29 @@ library OrderBookLib {
     function _fill(OrderBook storage orderBook, uint256 orderId, uint256 volume) internal returns (uint256) {
         (uint256 remainingVolume, uint256 unfilledVolume) = orderBook.orders.fill(orderId, volume);
 
+        uint256 volumeFilled = volume - unfilledVolume;
+        bool isBuy = orderBook.orders[orderId].isBuy;
+        uint8 price = orderBook.orders[orderId].price;
+
         emit IPlatform.OrderFilled(
             orderBook.params.id,
             orderId,
-            orderBook.orders[orderId].price,
-            orderBook.orders[orderId].isBuy,
-            volume - unfilledVolume,
+            price,
+            isBuy,
+            volumeFilled,
             remainingVolume
         );
 
+        if (isBuy) {
+            // Send YES outcome tokens to buyer
+            orderBook._sendYes(orderBook.orders[orderId].maker, volumeFilled);
+        } else {
+            // Send collateral to seller
+            orderBook._sendCollateral(orderBook.orders[orderId].maker, volumeFilled * price);
+        }
+
         if (remainingVolume == 0) {
-            orderBook._removeOrder(orderId, orderBook.orders[orderId].isBuy);
+            orderBook._removeOrder(orderId, isBuy);
         }
 
         return unfilledVolume;
