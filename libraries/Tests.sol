@@ -199,6 +199,10 @@ library TestsLib {
         return self.data().nextLevel;
     }
 
+    function volume(TestLevel memory self) internal view returns (uint256) {
+        return self.data().volume;
+    }
+
     function headOrderId(TestLevel memory self) internal view returns (uint256) {
         return self.data().headOrder;
     }

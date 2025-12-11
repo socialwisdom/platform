@@ -73,6 +73,7 @@ library OrdersLib {
         /* dev */ require(orders[level.tailOrder].isBuy == isBuy, "orders.createTail: mismatched order side");
 
         level.tailOrder = id;
+        level.volume += volume;
     }
 
     /// @return remainingVolume. Remaining volume in the order after fill.
@@ -129,6 +130,8 @@ library OrdersLib {
             /* dev */ require(orders[prevId].active, "orders.remove: inactive prev order for tail order");
             orders[prevId].nextOrder = 0;
         }
+
+        levels[order.price].volume -= unfilledVolume;
 
         return (false, 0, unfilledVolume);
     }

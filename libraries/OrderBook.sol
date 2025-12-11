@@ -254,6 +254,9 @@ library OrderBookLib {
         bool isBuy = orderBook.orders[orderId].isBuy;
         uint8 price = orderBook.orders[orderId].price;
 
+        Level storage level = isBuy ? orderBook.buyLevels[price] : orderBook.sellLevels[price];
+        level.volume -= volumeFilled;
+
         emit IPlatform.OrderFilled(
             orderBook.params.id,
             orderId,
@@ -306,14 +309,14 @@ library OrderBookLib {
             if (orderBook.buyLevels[price].active) {
                 orderBook.orders.createBuyTail(orderId, price, maker, volume, orderBook.buyLevels);
             } else {
-                orderBook.buyLevels.createBuy(price, orderBook.bestBuyPrice, orderId);
+                orderBook.buyLevels.createBuy(price, orderBook.bestBuyPrice, orderId, volume);
                 orderBook.orders.createBuyHead(orderId, price, maker, volume);
             }
         } else {
             if (orderBook.sellLevels[price].active) {
                 orderBook.orders.createSellTail(orderId, price, maker, volume, orderBook.sellLevels);
             } else {
-                orderBook.sellLevels.createSell(price, orderBook.bestSellPrice, orderId);
+                orderBook.sellLevels.createSell(price, orderBook.bestSellPrice, orderId, volume);
                 orderBook.orders.createSellHead(orderId, price, maker, volume);
             }
         }
@@ -321,11 +324,11 @@ library OrderBookLib {
 
     function _createBestOrder(OrderBook storage orderBook, uint256 orderId, uint8 price, address maker, uint256 volume, bool isBuy) internal {
         if (isBuy) {
-            orderBook.buyLevels.createBest(price, orderBook.bestBuyPrice, orderId);
+            orderBook.buyLevels.createBest(price, orderBook.bestBuyPrice, orderId, volume);
             orderBook.orders.createBuyHead(orderId, price, maker, volume);
             orderBook.bestBuyPrice = price;
         } else {
-            orderBook.sellLevels.createBest(price, orderBook.bestSellPrice, orderId);
+            orderBook.sellLevels.createBest(price, orderBook.bestSellPrice, orderId, volume);
             orderBook.orders.createSellHead(orderId, price, maker, volume);
             orderBook.bestSellPrice = price;
         }

@@ -11,21 +11,23 @@ struct Level {
     bool active;
     uint8 prevLevel;
     uint8 nextLevel;
+    uint256 volume;
     uint256 headOrder;
     uint256 tailOrder;
 }
 
 library LevelsLib {
-    function createBest(mapping (uint8 => Level) storage levels, uint8 price, uint8 nextPrice, uint256 orderId) internal {
-        return createBetween(levels, price, 0, nextPrice, orderId);
+    function createBest(mapping (uint8 => Level) storage levels, uint8 price, uint8 nextPrice, uint256 orderId, uint256 volume) internal {
+        return createBetween(levels, price, 0, nextPrice, orderId, volume);
     }
 
-    function createBetween(mapping (uint8 => Level) storage levels, uint8 price, uint8 prevLevel, uint8 nextLevel, uint256 orderId) internal {
+    function createBetween(mapping (uint8 => Level) storage levels, uint8 price, uint8 prevLevel, uint8 nextLevel, uint256 orderId, uint256 volume) internal {
         Level storage level = levels[price];
 
         level.active = true;
         level.prevLevel = prevLevel;
         level.nextLevel = nextLevel;
+        level.volume = volume;
         level.headOrder = orderId;
         level.tailOrder = orderId;
 
@@ -40,20 +42,20 @@ library LevelsLib {
         }
     }
 
-    function createBuy(mapping (uint8 => Level) storage levels, uint8 price, uint8 bestPrice, uint256 orderId) internal {
+    function createBuy(mapping (uint8 => Level) storage levels, uint8 price, uint8 bestPrice, uint256 orderId, uint256 volume) internal {
         while (bestPrice > price) {
             if (levels[bestPrice].nextLevel < price) {
-                return createBetween(levels, price, bestPrice, levels[bestPrice].nextLevel, orderId);
+                return createBetween(levels, price, bestPrice, levels[bestPrice].nextLevel, orderId, volume);
             } else {
                 bestPrice = levels[bestPrice].nextLevel;
             }
         }
     }
 
-    function createSell(mapping (uint8 => Level) storage levels, uint8 price, uint8 bestPrice, uint256 orderId) internal {
+    function createSell(mapping (uint8 => Level) storage levels, uint8 price, uint8 bestPrice, uint256 orderId, uint256 volume) internal {
         while (bestPrice < price || bestPrice == 0) {
             if (levels[bestPrice].nextLevel > price || levels[bestPrice].nextLevel == 0) {
-                return createBetween(levels, price, bestPrice, levels[bestPrice].nextLevel, orderId);
+                return createBetween(levels, price, bestPrice, levels[bestPrice].nextLevel, orderId, volume);
             } else {
                 bestPrice = levels[bestPrice].nextLevel;
             }
@@ -66,6 +68,7 @@ library LevelsLib {
         /* dev */ require(level.active, "levels.remove: inactive level");
 
         level.active = false;
+        level.volume = 0;
         level.headOrder = 0;
         level.tailOrder = 0;
 
