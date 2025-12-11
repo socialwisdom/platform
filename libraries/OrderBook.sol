@@ -108,10 +108,8 @@ library OrderBookLib {
 
         if (address(orderBook.outcomes.conditionalTokens) == address(0)) revert("market has no outcomes");
 
-        if (msg.sender != orderBook.outcomes.oracle) revert IPlatform.Unauthorized();
-
-        orderBook.outcomes.conditionalTokens.resolveCondition(
-            orderBook.outcomes.conditionId,
+        orderBook.outcomes.conditionalTokens.resolveQuestion(
+            bytes32(orderBook.params.id),
             yesWon
         );
     }
@@ -119,7 +117,7 @@ library OrderBookLib {
     /// @return orderId. The ID of the created buy order for YES outcome. It may be filled immediately.
     function buy(OrderBook storage orderBook, address maker, uint8 price, uint256 volume) internal whileActive(orderBook) returns (uint256) {
         // TODO: refund unused collateral.
-        orderBook._receiveCollateral(maker, volume * price);
+        orderBook._receiveCollateral(maker, volume * price / 100);
 
         return orderBook._placeOrder(maker, price, volume, true);
     }
@@ -153,7 +151,7 @@ library OrderBookLib {
 
         if (isBuy) {
             // Refund collateral
-            orderBook._sendCollateral(order.maker, unfilledVolume * order.price);
+            orderBook._sendCollateral(order.maker, unfilledVolume * order.price / 100);
         } else {
             // Refund YES outcome tokens
             orderBook._sendYes(order.maker, unfilledVolume);
@@ -242,7 +240,7 @@ library OrderBookLib {
             orderBook._sendYes(maker, volumeFilled);
         } else {
             // Send collateral to seller
-            orderBook._sendCollateral(maker, volumeFilled * price);
+            orderBook._sendCollateral(maker, volumeFilled * price / 100);
         }
 
         return orderId;
@@ -270,7 +268,7 @@ library OrderBookLib {
             orderBook._sendYes(orderBook.orders[orderId].maker, volumeFilled);
         } else {
             // Send collateral to seller
-            orderBook._sendCollateral(orderBook.orders[orderId].maker, volumeFilled * price);
+            orderBook._sendCollateral(orderBook.orders[orderId].maker, volumeFilled * price / 100);
         }
 
         if (remainingVolume == 0) {

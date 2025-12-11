@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import {IPlatform} from "../interfaces/IPlatform.sol";
+import {IConditionalTokens} from "../interfaces/IConditionalTokens.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Level} from "../libraries/Levels.sol";
 import {Order} from "../libraries/Orders.sol";
-import {OrderBook, OrderBookLib, OrderBookParams} from "../libraries/OrderBook.sol";
+import {OrderBook, OrderBookLib, OrderBookParams, OrderBookOutcomes} from "../libraries/OrderBook.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IPlatform {
@@ -61,8 +62,19 @@ interface IPlatform {
     /// @return marketId. The ID of the created market.
     function createMarket() external returns (uint256);
 
+    /// @return marketId. The ID of the created market.
+    function createMarketWithOutcomes(IConditionalTokens conditionalTokens, IERC20 collateral, address oracle)
+        external
+        returns (uint256);
+
     /// @dev Closes the market with the given ID.
     function closeMarket(uint256 marketId) external;
+
+    /// @dev Closes the market with the given ID and sets the winning outcome.
+    function closeMarketWithOutcomes(uint256 marketId, bool yesWon) external;
+
+    /// @dev Sets the outcome of the finished market with the given ID.
+    function setMarketOutcome(uint256 marketId, bool yesWon) external;
 
     /// @return orderId. The ID of the created buy order. Zero if was filled immediately.
     function buy(uint256 market, uint8 price, uint256 volume) external returns (uint256);
@@ -84,4 +96,7 @@ interface IPlatform {
 
     /// @return params. The parameters for the given market.
     function params(uint256 market) external view returns (OrderBookParams memory);
+
+    /// @return outcomes. The outcomes for the given market.
+    function outcomes(uint256 market) external view returns (OrderBookOutcomes memory);
 }

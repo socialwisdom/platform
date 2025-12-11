@@ -39,15 +39,9 @@ library ConditionalTokensLib {
         partition[0] = YES;
         partition[1] = NO;
 
-        conditionalTokens.splitPosition(collateral, bytes32(0), conditionId, partition, amount);
-    }
+        require(collateral.approve(address(conditionalTokens), amount), "collateral approve failed");
 
-    function balanceYes(
-        IConditionalTokens conditionalTokens,
-        IERC20 collateral,
-        bytes32 conditionId
-    ) internal view returns (uint256) {
-        return conditionalTokens.balanceYesOf(collateral, conditionId, msg.sender);
+        conditionalTokens.splitPosition(collateral, bytes32(0), conditionId, partition, amount);
     }
 
     function balanceYesOf(
@@ -59,14 +53,6 @@ library ConditionalTokensLib {
         return conditionalTokens.balanceOf(owner, conditionalTokens.getPositionId(
             collateral, conditionalTokens.getCollectionId(bytes32(0), conditionId, YES)
         ));
-    }
-
-    function balanceNo(
-        IConditionalTokens conditionalTokens,
-        IERC20 collateral,
-        bytes32 conditionId
-    ) internal view returns (uint256) {
-        return conditionalTokens.balanceNoOf(collateral, conditionId, msg.sender);
     }
 
     function balanceNoOf(
@@ -84,20 +70,20 @@ library ConditionalTokensLib {
         IConditionalTokens conditionalTokens,
         bytes32 conditionId
     ) internal {
-        conditionalTokens.resolveCondition(conditionId, true);
+        conditionalTokens.resolveQuestion(conditionId, true);
     }
 
     function resolveAsNo(
         IConditionalTokens conditionalTokens,
         bytes32 conditionId
     ) internal {
-        conditionalTokens.resolveCondition(conditionId, false);
+        conditionalTokens.resolveQuestion(conditionId, false);
     }
 
         // TODO: add fee here
-    function resolveCondition(
+    function resolveQuestion(
         IConditionalTokens conditionalTokens,
-        bytes32 conditionId,
+        bytes32 questionId,
         bool yesWon
     ) internal {
         uint256[] memory payouts = new uint256[](2);
@@ -110,7 +96,7 @@ library ConditionalTokensLib {
             payouts[1] = 1;
         }
 
-        conditionalTokens.reportPayouts(conditionId, payouts);
+        conditionalTokens.reportPayouts(questionId, payouts);
     }
 
     function redeemYes(
