@@ -1,9 +1,20 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
+import {ConditionalTokensLib} from "./ConditionalTokens.sol";
+import {IConditionalTokens} from "../interfaces/IConditionalTokens.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPlatform} from "../interfaces/IPlatform.sol";
 import {Level, LevelsLib} from "./Levels.sol";
 import {Order, OrdersLib} from "./Orders.sol";
+
+struct OrderBookOutcomes {
+    IConditionalTokens conditionalTokens;
+    IERC20 collateral;
+    address oracle;
+    // TODO: impl uint8 winnerFee;
+    bytes32 conditionId;
+}
 
 struct OrderBookParams {
     bool active;
@@ -13,6 +24,7 @@ struct OrderBookParams {
 
 struct OrderBook {
     OrderBookParams params;
+    OrderBookOutcomes outcomes;
 
     uint8 bestBuyPrice;
     uint8 bestSellPrice;
@@ -28,22 +40,66 @@ struct OrderBook {
 library OrderBookLib {
     using OrderBookLib for OrderBook;
 
+    using ConditionalTokensLib for IConditionalTokens;
+
     using LevelsLib for mapping(uint8 => Level);
     using OrdersLib for mapping(uint256 => Order);
 
     /// @dev Initializes the order book with the given ID and minimum volume.
+    /// @dev Intended for test markets without outcomes.
     function initialize(OrderBook storage orderBook, uint256 id, uint256 minVolume) internal {
+        orderBook.initializeWithOutcomes(id, minVolume, IConditionalTokens(address(0)), IERC20(address(0)), address(0));
+    }
+
+    /// @dev Initializes the order book with it's parameters and outcomes configuration.
+    function initializeWithOutcomes(
+        OrderBook storage orderBook,
+        /* @dev order book params */
+        uint256 id,
+        uint256 minVolume,
+        /* @dev outcomes params */
+        IConditionalTokens conditionalTokens,
+        IERC20 collateral,
+        address oracle
+    ) internal {
         if (orderBook.params.active) revert("already initialized");
 
         orderBook.params.active = true;
         orderBook.params.id = id;
         orderBook.params.minVolume = minVolume;
+
+        orderBook.outcomes.conditionalTokens = conditionalTokens;
+        orderBook.outcomes.collateral = collateral;
+        orderBook.outcomes.oracle = oracle;
+
+        if (address(conditionalTokens) != address(0)) {
+            orderBook.outcomes.conditionId = conditionalTokens.createBinaryCondition(
+                oracle,
+                bytes32(id)
+            );
+        }
+
         orderBook.nextOrderId = 1;
     }
 
     /// @dev Finishes the order book, preventing new orders from being placed.
+    /// @dev Intended for test markets without outcomes.
     function finish(OrderBook storage orderBook) internal whileActive(orderBook) {
         orderBook.params.active = false;
+    }
+
+    /// @dev Finishes the order book, preventing new orders from being placed and resolves outcome.
+    function setOutcomes(OrderBook storage orderBook, bool yesWon) internal {
+        if (orderBook.params.active) revert("market still active");
+
+        if (address(orderBook.outcomes.conditionalTokens) == address(0)) revert("market has no outcomes");
+
+        if (msg.sender != orderBook.outcomes.oracle) revert IPlatform.Unauthorized();
+
+        orderBook.outcomes.conditionalTokens.resolveCondition(
+            orderBook.outcomes.conditionId,
+            yesWon
+        );
     }
 
     /// @return orderId. The ID of the created buy order. It may be filled immediately.

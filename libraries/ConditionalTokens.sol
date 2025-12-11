@@ -4,8 +4,8 @@ pragma solidity ^0.8.20;
 import {IConditionalTokens} from "../interfaces/IConditionalTokens.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-library ConditionalTokensLibrary {
-    using ConditionalTokensLibrary for IConditionalTokens;
+library ConditionalTokensLib {
+    using ConditionalTokensLib for IConditionalTokens;
 
     uint constant internal YES = 1; // 0b01;
     uint constant internal NO = 2;  // 0b10;
