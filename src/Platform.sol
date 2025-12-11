@@ -7,7 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPlatform} from "../interfaces/IPlatform.sol";
 import {Level} from "../libraries/Levels.sol";
 import {Order} from "../libraries/Orders.sol";
-import {OrderBook, OrderBookLib, OrderBookParams, OrderBookOutcomes} from "../libraries/OrderBook.sol";
+import {OrderBook, OrderBookLib, OrderBookParams, OrderBookOutcomes, OrderBookState} from "../libraries/OrderBook.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Platform is IPlatform, Ownable, ERC1155Holder {
@@ -109,5 +109,10 @@ contract Platform is IPlatform, Ownable, ERC1155Holder {
     /// @return outcomes. The outcomes for the given market.
     function outcomes(uint256 market) external view returns (OrderBookOutcomes memory) {
         return markets[market].outcomes;
+    }
+
+    /// @dev MVP front helper.
+    function getState(uint256 marketId) external view returns (OrderBookState memory) {
+        return markets[marketId].getState();
     }
 }

@@ -8,6 +8,16 @@ import {IPlatform} from "../interfaces/IPlatform.sol";
 import {Level, LevelsLib} from "./Levels.sol";
 import {Order, OrdersLib} from "./Orders.sol";
 
+struct OrderBookState {
+    LevelState[] buys;
+    LevelState[] sells;
+}
+
+struct LevelState {
+    uint8 price;
+    uint256 volume;
+}
+
 struct OrderBookOutcomes {
     IConditionalTokens conditionalTokens;
     IERC20 collateral;
@@ -45,6 +55,42 @@ library OrderBookLib {
 
     using LevelsLib for mapping(uint8 => Level);
     using OrdersLib for mapping(uint256 => Order);
+
+    function getState(OrderBook storage orderBook) internal view returns (OrderBookState memory) {
+        OrderBookState memory state = OrderBookState({
+            buys: new LevelState[](99),
+            sells: new LevelState[](99)
+        });
+
+        uint8 price = orderBook.bestBuyPrice;
+
+        uint256 buyCount = 0;
+        while (price != 0) {
+            Level storage buyLevel = orderBook.buyLevels[price];
+
+            state.buys[buyCount++] = LevelState({
+                price: price,
+                volume: buyLevel.volume
+            });
+
+            price = buyLevel.nextLevel;
+        }
+
+        price = orderBook.bestSellPrice;
+        uint256 sellCount = 0;
+        while (price != 0) {
+            Level storage sellLevel = orderBook.sellLevels[price];
+
+            state.sells[sellCount++] = LevelState({
+                price: price,
+                volume: sellLevel.volume
+            });
+
+            price = sellLevel.nextLevel;
+        }
+
+        return state;
+    }
 
     /// @dev Initializes the order book with the given ID and minimum volume.
     /// @dev Intended for test markets without outcomes.
