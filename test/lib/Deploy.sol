@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {IConditionalTokens} from "../interfaces/IConditionalTokens.sol";
+import {IConditionalTokens} from "../../src/interfaces/IConditionalTokens.sol";
 
 library Deploy {
     function conditionalTokens() internal returns (IConditionalTokens) {
