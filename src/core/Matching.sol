@@ -2,134 +2,98 @@
 pragma solidity ^0.8.30;
 
 import {PlatformStorage} from "../storage/PlatformStorage.sol";
-import {BookState, Level, Order} from "../types/Structs.sol";
+import {Level} from "../types/Structs.sol";
 import {BookKey, Tick, OrderId} from "../types/IdTypes.sol";
 import {Side} from "../types/Enums.sol";
-import {BookKeyLib} from "../encoding/BookKeyLib.sol";
 import {Keys} from "../encoding/Keys.sol";
 import {Masks} from "../encoding/Masks.sol";
 import {LevelQueue} from "./LevelQueue.sol";
 
 library Matching {
-    /// @notice Matches up to sharesRequested against the opposite side book within limitTick.
-    /// Returns (sharesFilled, pointsTraded = sum(fillShares * tick)).
-    function matchUpTo(PlatformStorage storage s, BookKey takerBookKey, Tick limitTick, uint128 sharesRequested)
-        internal
-        returns (uint128 sharesFilled, uint256 pointsTraded)
-    {
-        if (sharesRequested == 0) return (0, 0);
-
-        Side takerSide = BookKeyLib.sideOf(takerBookKey);
-        Side makerSide = BookKeyLib.opposite(takerSide);
-
-        (uint64 marketId, uint8 outcomeId,) = BookKeyLib.unpack(takerBookKey);
-        BookKey makerBookKey = BookKeyLib.pack(marketId, outcomeId, makerSide);
-
-        return _matchLoop(s, makerBookKey, makerSide, takerSide, limitTick, sharesRequested);
+    /// @notice Info about a single fill for Trade event emission.
+    struct FillInfo {
+        OrderId makerId;
+        OrderId takerId;
+        uint128 sharesFilled;
+        Tick tick;
+        bool levelEmptied;
     }
 
-    function _matchLoop(
+    /// @notice Performs one matching step (one maker order fill) and returns fill info.
+    /// Caller is responsible for managing the loop and emitting Trade events.
+    /// Assumes all inputs are valid (checked by Platform).
+    function matchOneStep(
         PlatformStorage storage s,
         BookKey makerBookKey,
         Side makerSide,
-        Side takerSide,
+        OrderId takerOrderId,
         Tick limitTick,
-        uint128 sharesRequested
-    ) private returns (uint128 sharesFilled, uint256 pointsTraded) {
-        BookState storage makerBook = s.books[makerBookKey];
+        uint128 remainingToFill
+    ) internal returns (FillInfo memory) {
+        FillInfo memory info;
+        if (remainingToFill == 0) return info;
 
-        uint128 mask = makerSide == Side.Bid ? makerBook.bidsMask : makerBook.asksMask;
+        uint128 mask = makerSide == Side.Bid ? s.books[makerBookKey].bidsMask : s.books[makerBookKey].asksMask;
+        if (mask == 0) return info;
 
-        uint128 remaining = sharesRequested;
-        uint8 limit = Tick.unwrap(limitTick);
+        Tick tick = makerSide == Side.Bid ? Masks.bestBid(mask) : Masks.bestAsk(mask);
+        if (!_checkPrice(makerSide, tick, limitTick)) return info;
 
-        while (remaining != 0 && mask != 0) {
-            Tick bestTick = makerSide == Side.Bid ? Masks.bestBid(mask) : Masks.bestAsk(mask);
-            uint8 bt = Tick.unwrap(bestTick);
-
-            if (takerSide == Side.Bid) {
-                if (bt > limit) break;
-            } else {
-                if (bt < limit) break;
-            }
-
-            // packed result: [ emptied (1 bit) | filled (128 bits) ]
-            uint256 packed = _fillOneLevelPacked(s, makerBookKey, bestTick, remaining);
-            // casting to uint128 is safe because _fillOneLevelPacked encodes filledInLevel only in the low 128 bits
-            // and filledInLevel is accumulated as uint128 (never exceeds 2^128-1).
-            // forge-lint: disable-next-line(unsafe-typecast)
-            uint128 filled = uint128(packed);
-            bool emptied = (packed >> 255) != 0; // top bit
-
-            if (filled != 0) {
-                unchecked {
-                    remaining -= filled;
-                    sharesFilled += filled;
-                }
-                pointsTraded += uint256(filled) * uint256(bt);
-            }
-
-            if (emptied) {
-                mask = Masks.clear(mask, bestTick);
-                if (makerSide == Side.Bid) makerBook.bidsMask = mask;
-                else makerBook.asksMask = mask;
-            }
-        }
-
-        return (sharesFilled, pointsTraded);
+        return _fillLevel(s, makerBookKey, makerSide, tick, takerOrderId, remainingToFill, mask);
     }
 
-    /// @dev Fills one price level FIFO.
-    /// Returns packed uint256:
-    /// - bit 255: levelEmptied
-    /// - bits [0..127]: filledInLevel (uint128)
-    function _fillOneLevelPacked(PlatformStorage storage s, BookKey makerBookKey, Tick tick, uint128 remainingToFill)
-        private
-        returns (uint256 packed)
-    {
-        Level storage lvl = s.levels[Keys.levelKey(makerBookKey, tick)];
+    function _checkPrice(Side makerSide, Tick tick, Tick limitTick) private pure returns (bool) {
+        uint8 tickValue = Tick.unwrap(tick);
+        uint8 limitValue = Tick.unwrap(limitTick);
+        return makerSide == Side.Bid ? tickValue >= limitValue : tickValue <= limitValue;
+    }
 
-        uint128 remaining = remainingToFill;
-        uint128 filledInLevel = 0;
-
-        while (remaining != 0) {
-            uint32 headRaw = lvl.headOrderId;
-            if (headRaw == 0) {
-                // mask says non-empty but level empty -> treat as emptied
-                return (uint256(1) << 255) | uint256(filledInLevel);
-            }
-
-            OrderId headId = OrderId.wrap(headRaw);
-            Order storage ord = s.orders[Keys.orderKey(makerBookKey, headId)];
-
-            uint128 makerRem = ord.sharesRemaining;
-
-            if (makerRem == 0) {
-                (, bool emptied0) = LevelQueue.popHeadIfFilled(s, makerBookKey, tick);
-                if (emptied0) return (uint256(1) << 255) | uint256(filledInLevel);
-                continue;
-            }
-
-            uint128 fill = makerRem < remaining ? makerRem : remaining;
-
-            unchecked {
-                ord.sharesRemaining = makerRem - fill;
-                lvl.totalShares -= fill;
-
-                remaining -= fill;
-                filledInLevel += fill;
-            }
-
-            if (ord.sharesRemaining == 0) {
-                (, bool emptied) = LevelQueue.popHeadIfFilled(s, makerBookKey, tick);
-                if (emptied) return (uint256(1) << 255) | uint256(filledInLevel);
-                // else continue
-            } else {
-                // head partially filled => stop at this tick
-                return uint256(filledInLevel);
-            }
+    function _fillLevel(
+        PlatformStorage storage s,
+        BookKey makerBookKey,
+        Side makerSide,
+        Tick tick,
+        OrderId takerOrderId,
+        uint128 remainingToFill,
+        uint128 mask
+    ) private returns (FillInfo memory info) {
+        Level storage level = s.levels[Keys.levelKey(makerBookKey, tick)];
+        uint32 headOrderIdRaw = level.headOrderId;
+        if (headOrderIdRaw == 0) {
+            _clearMask(s, makerBookKey, makerSide, tick, mask);
+            return info;
         }
 
-        return uint256(filledInLevel);
+        OrderId headOrderId = OrderId.wrap(headOrderIdRaw);
+        uint128 headRemaining = s.orders[Keys.orderKey(makerBookKey, headOrderId)].sharesRemaining;
+        if (headRemaining == 0) {
+            (, bool levelEmptied) = LevelQueue.popHeadIfFilled(s, makerBookKey, tick);
+            if (levelEmptied) _clearMask(s, makerBookKey, makerSide, tick, mask);
+            return info;
+        }
+
+        uint128 filled = headRemaining < remainingToFill ? headRemaining : remainingToFill;
+        s.orders[Keys.orderKey(makerBookKey, headOrderId)].sharesRemaining = headRemaining - filled;
+        level.totalShares -= filled;
+
+        if (headRemaining == filled) {
+            (, bool levelEmptied) = LevelQueue.popHeadIfFilled(s, makerBookKey, tick);
+            if (levelEmptied) _clearMask(s, makerBookKey, makerSide, tick, mask);
+            info.levelEmptied = true;
+        }
+
+        info.makerId = headOrderId;
+        info.takerId = takerOrderId;
+        info.sharesFilled = filled;
+        info.tick = tick;
+        return info;
+    }
+
+    function _clearMask(PlatformStorage storage s, BookKey makerBookKey, Side makerSide, Tick tick, uint128 mask)
+        private
+    {
+        uint128 clearedMask = Masks.clear(mask, tick);
+        if (makerSide == Side.Bid) s.books[makerBookKey].bidsMask = clearedMask;
+        else s.books[makerBookKey].asksMask = clearedMask;
     }
 }

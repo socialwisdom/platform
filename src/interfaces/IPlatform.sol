@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Side} from "../types/Enums.sol";
-import {UserId, Tick, OrderId} from "../types/IdTypes.sol";
+import {Tick, OrderId} from "../types/IdTypes.sol";
 
 /// @notice IPlatform defines the external API of the Social Wisdom protocol.
 /// All events and function signatures for user-facing operations.
@@ -100,7 +100,7 @@ interface IPlatform {
 
     /// @notice Emitted after balances debit and ERC-1155 transfer out succeeds.
     event SharesWithdrawn(
-        uint64 indexed userId, uint64 indexed marketId, uint8 indexed outcomeId, address indexed to, uint128 amount
+        uint64 indexed userId, uint64 indexed marketId, uint8 indexed outcomeId, address to, uint128 amount
     );
 
     // ==================== Claim Events ====================

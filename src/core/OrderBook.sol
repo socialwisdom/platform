@@ -5,12 +5,11 @@ import {PlatformStorage} from "../storage/PlatformStorage.sol";
 import {BookState, Level, Order} from "../types/Structs.sol";
 import {BookKey, Tick, OrderId, UserId} from "../types/IdTypes.sol";
 import {Side} from "../types/Enums.sol";
-import {MinFillNotMet, NotOrderOwner, OrderNotFound, PrevCandidateNotFound} from "../types/Errors.sol";
+import {NotOrderOwner, OrderNotFound, PrevCandidateNotFound} from "../types/Errors.sol";
 import {BookKeyLib} from "../encoding/BookKeyLib.sol";
 import {Keys} from "../encoding/Keys.sol";
 import {Masks} from "../encoding/Masks.sol";
 import {LevelQueue} from "./LevelQueue.sol";
-import {Matching} from "./Matching.sol";
 
 library OrderBook {
     uint256 internal constant CANCEL_CANDIDATES_CAP = 16;
@@ -20,11 +19,6 @@ library OrderBook {
         uint256 pointsTraded; // sum(fill * tick)
         OrderId placedOrderId; // 0 if fully filled (no resting order)
         uint128 restingShares; // 0 if none
-    }
-
-    struct TakeResult {
-        uint128 filledShares;
-        uint256 pointsTraded;
     }
 
     struct CancelResult {
@@ -46,11 +40,7 @@ library OrderBook {
     ) internal returns (PlaceResult memory r) {
         if (sharesRequested == 0) return r;
 
-        (uint128 filled, uint256 pts) = Matching.matchUpTo(s, takerBookKey, limitTick, sharesRequested);
-        r.filledShares = filled;
-        r.pointsTraded = pts;
-
-        uint128 remaining = sharesRequested - filled;
+        uint128 remaining = sharesRequested;
         if (remaining == 0) return r;
 
         BookState storage book = s.books[takerBookKey];
@@ -89,23 +79,6 @@ library OrderBook {
     // -----------------------------
     // take
     // -----------------------------
-
-    function take(
-        PlatformStorage storage s,
-        BookKey takerBookKey,
-        Tick limitTick,
-        uint128 sharesRequested,
-        uint128 minFill
-    ) internal returns (TakeResult memory r) {
-        if (sharesRequested == 0) return r;
-
-        (uint128 filled, uint256 pts) = Matching.matchUpTo(s, takerBookKey, limitTick, sharesRequested);
-        if (filled < minFill) revert MinFillNotMet(filled, minFill);
-
-        r.filledShares = filled;
-        r.pointsTraded = pts;
-        return r;
-    }
 
     // -----------------------------
     // cancel (with candidates)
