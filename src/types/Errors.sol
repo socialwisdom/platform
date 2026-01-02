@@ -1,18 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-// Base primitives and enums used across the codebase.
-// Intentionally contains no logic.
+import {UserId, BookKey, Tick, OrderId} from "./IdTypes.sol";
+import {Side} from "./Enums.sol";
 
-type UserId is uint64; // UserId(0) = unregistered, valid ids start at 1
-type BookKey is uint80; // packed: marketId(64) | outcomeId(8) | side(8)
-type Tick is uint8; // discrete price level, valid range [1..99]
-type OrderId is uint32; // monotonically increases per book
-
-enum Side {
-    Ask,
-    Bid
-}
+/// @notice Custom errors for the entire protocol.
 
 // Generic / shared errors
 error ZeroAddress();

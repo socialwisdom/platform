@@ -1,21 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {AppStorage, BookState, Level, Order} from "../storage/Storage.sol";
-import {
-    BookKey,
-    Tick,
-    OrderId,
-    UserId,
-    Side,
-    MinFillNotMet,
-    NotOrderOwner,
-    OrderNotFound,
-    PrevCandidateNotFound
-} from "../types/Types.sol";
-import {BookKeyLib} from "../lib/BookKeyLib.sol";
-import {Keys} from "../lib/Keys.sol";
-import {MaskLib} from "../lib/MaskLib.sol";
+import {PlatformStorage} from "../storage/PlatformStorage.sol";
+import {BookState, Level, Order} from "../types/Structs.sol";
+import {BookKey, Tick, OrderId, UserId} from "../types/IdTypes.sol";
+import {Side} from "../types/Enums.sol";
+import {MinFillNotMet, NotOrderOwner, OrderNotFound, PrevCandidateNotFound} from "../types/Errors.sol";
+import {BookKeyLib} from "../encoding/BookKeyLib.sol";
+import {Keys} from "../encoding/Keys.sol";
+import {Masks} from "../encoding/Masks.sol";
 import {LevelQueue} from "./LevelQueue.sol";
 import {Matching} from "./Matching.sol";
 
@@ -45,7 +38,7 @@ library OrderBook {
     // -----------------------------
 
     function placeLimit(
-        AppStorage storage s,
+        PlatformStorage storage s,
         UserId userId,
         BookKey takerBookKey,
         Tick limitTick,
@@ -83,9 +76,9 @@ library OrderBook {
 
         Side side = BookKeyLib.sideOf(takerBookKey);
         if (side == Side.Bid) {
-            book.bidsMask = MaskLib.set(book.bidsMask, limitTick);
+            book.bidsMask = Masks.set(book.bidsMask, limitTick);
         } else {
-            book.asksMask = MaskLib.set(book.asksMask, limitTick);
+            book.asksMask = Masks.set(book.asksMask, limitTick);
         }
 
         r.placedOrderId = newId;
@@ -97,10 +90,13 @@ library OrderBook {
     // take
     // -----------------------------
 
-    function take(AppStorage storage s, BookKey takerBookKey, Tick limitTick, uint128 sharesRequested, uint128 minFill)
-        internal
-        returns (TakeResult memory r)
-    {
+    function take(
+        PlatformStorage storage s,
+        BookKey takerBookKey,
+        Tick limitTick,
+        uint128 sharesRequested,
+        uint128 minFill
+    ) internal returns (TakeResult memory r) {
         if (sharesRequested == 0) return r;
 
         (uint128 filled, uint256 pts) = Matching.matchUpTo(s, takerBookKey, limitTick, sharesRequested);
@@ -116,7 +112,7 @@ library OrderBook {
     // -----------------------------
 
     function cancel(
-        AppStorage storage s,
+        PlatformStorage storage s,
         UserId userId,
         BookKey bookKey,
         OrderId orderId,
@@ -170,7 +166,7 @@ library OrderBook {
     }
 
     function _findPrevCandidate(
-        AppStorage storage s,
+        PlatformStorage storage s,
         BookKey bookKey,
         OrderId orderId,
         OrderId[] calldata prevCandidates
@@ -195,7 +191,7 @@ library OrderBook {
     /// @dev Unlinks a non-head node using its prevId and cached next pointer.
     /// Returns true iff the level became empty after removing remaining shares.
     function _unlinkNonHead(
-        AppStorage storage s,
+        PlatformStorage storage s,
         BookKey bookKey,
         Tick tick,
         OrderId orderId,
@@ -233,7 +229,7 @@ library OrderBook {
     // view helper: collect N predecessors ("ancestors")
     // -----------------------------
 
-    function collectPrevCandidates(AppStorage storage s, BookKey bookKey, OrderId targetOrderId, uint256 maxN)
+    function collectPrevCandidates(PlatformStorage storage s, BookKey bookKey, OrderId targetOrderId, uint256 maxN)
         internal
         view
         returns (OrderId[] memory out)
@@ -284,16 +280,16 @@ library OrderBook {
         return new OrderId[](0);
     }
 
-    function _maybeClearMaskIfEmpty(AppStorage storage s, BookKey bookKey, Tick tick, bool emptied) private {
+    function _maybeClearMaskIfEmpty(PlatformStorage storage s, BookKey bookKey, Tick tick, bool emptied) private {
         if (!emptied) return;
 
         BookState storage book = s.books[bookKey];
         Side side = BookKeyLib.sideOf(bookKey);
 
         if (side == Side.Bid) {
-            book.bidsMask = MaskLib.clear(book.bidsMask, tick);
+            book.bidsMask = Masks.clear(book.bidsMask, tick);
         } else {
-            book.asksMask = MaskLib.clear(book.asksMask, tick);
+            book.asksMask = Masks.clear(book.asksMask, tick);
         }
     }
 }

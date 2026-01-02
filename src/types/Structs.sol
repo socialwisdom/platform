@@ -1,40 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {UserId, Tick, OrderId, BookKey} from "../types/Types.sol";
+import {UserId, Tick, OrderId} from "./IdTypes.sol";
 
-/// @notice Canonical storage layout (orderbook-only phase).
-/// Append-only: when adding new subsystems later, ONLY append new fields/sections.
-///
-/// CORE INTENT:
-/// - This storage is intentionally minimal to benchmark the on-chain LOB gas cost.
-/// - No Points/Shares/Markets here yet.
-///
-/// GLOBAL INVARIANTS (high-level):
-/// - books[bookKey].nextOrderId is monotonically increasing per book (start at 1; 0 reserved as “null”).
-/// - books[bookKey].bidsMask/asksMask: bit i set <=> tick(i+1) level is non-empty (tick=1 -> bit0).
-/// - levels[levelKey].totalShares == sum(orders.sharesRemaining) for all orders in that level.
-/// - FIFO per tick via next-only linked list (orders[orderKey].nextOrderId).
-///
-/// KEY DERIVATIONS (defined in src/lib/Keys.sol later):
-/// - levelKey = (uint256(bookKey) << 8) | uint8(tick)
-/// - orderKey = (uint256(bookKey) << 32) | uint32(orderId)
-struct AppStorage {
-    // — Per-book aggregate state —
-    mapping(BookKey => BookState) books;
-
-    // --- Per-(book,tick) level state ---
-    mapping(uint256 => Level) levels;
-
-    // --- Per-(book,orderId) order nodes ---
-    mapping(uint256 => Order) orders;
-
-    // --- User registry (orderbook phase) ---
-    mapping(address => UserId) userIdOf; // UserId(0) = unregistered
-    mapping(UserId => address) userOfId;
-    UserId nextUserId; // starts at 1
-    // (Append new storage below this line in future iterations.)
-}
+/// @notice Shared storage and data structures used across the codebase.
 
 /// @notice Per-book aggregate state.
 /// STORAGE PACKING (Solidity, by field order):
@@ -49,7 +18,7 @@ struct AppStorage {
 /// Gas notes:
 /// - nextOrderId increments on each new resting order (placeLimit remainder).
 /// - masks are read constantly in matching (best bid/ask). Keeping bidsMask in SLOT 0
-///   makes “create + update bids” often touch a single slot.
+///   makes "create + update bids" often touch a single slot.
 struct BookState {
     uint32 nextOrderId;
     uint128 asksMask;

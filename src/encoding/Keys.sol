@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {BookKey, Tick, OrderId} from "../types/Types.sol";
+import {BookKey, Tick, OrderId} from "../types/IdTypes.sol";
 
 /// @notice Deterministic key derivation helpers for order book mappings.
 /// No validation, no branching, no logic — pure packing.

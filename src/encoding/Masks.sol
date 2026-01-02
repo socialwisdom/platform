@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {Tick, EmptyMask} from "../types/Types.sol";
+import {Tick} from "../types/IdTypes.sol";
+import {EmptyMask} from "../types/Errors.sol";
 
-library MaskLib {
+library Masks {
     function hasAny(uint128 mask) internal pure returns (bool) {
         return mask != 0;
     }

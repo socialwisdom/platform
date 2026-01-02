@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {AppStorage, BookState, Level, Order} from "../storage/Storage.sol";
-import {BookKey, Tick, OrderId, Side} from "../types/Types.sol";
-import {BookKeyLib} from "../lib/BookKeyLib.sol";
-import {Keys} from "../lib/Keys.sol";
-import {MaskLib} from "../lib/MaskLib.sol";
+import {PlatformStorage} from "../storage/PlatformStorage.sol";
+import {BookState, Level, Order} from "../types/Structs.sol";
+import {BookKey, Tick, OrderId} from "../types/IdTypes.sol";
+import {Side} from "../types/Enums.sol";
+import {BookKeyLib} from "../encoding/BookKeyLib.sol";
+import {Keys} from "../encoding/Keys.sol";
+import {Masks} from "../encoding/Masks.sol";
 import {LevelQueue} from "./LevelQueue.sol";
 
 library Matching {
     /// @notice Matches up to sharesRequested against the opposite side book within limitTick.
     /// Returns (sharesFilled, pointsTraded = sum(fillShares * tick)).
-    function matchUpTo(AppStorage storage s, BookKey takerBookKey, Tick limitTick, uint128 sharesRequested)
+    function matchUpTo(PlatformStorage storage s, BookKey takerBookKey, Tick limitTick, uint128 sharesRequested)
         internal
         returns (uint128 sharesFilled, uint256 pointsTraded)
     {
@@ -27,7 +29,7 @@ library Matching {
     }
 
     function _matchLoop(
-        AppStorage storage s,
+        PlatformStorage storage s,
         BookKey makerBookKey,
         Side makerSide,
         Side takerSide,
@@ -42,7 +44,7 @@ library Matching {
         uint8 limit = Tick.unwrap(limitTick);
 
         while (remaining != 0 && mask != 0) {
-            Tick bestTick = makerSide == Side.Bid ? MaskLib.bestBid(mask) : MaskLib.bestAsk(mask);
+            Tick bestTick = makerSide == Side.Bid ? Masks.bestBid(mask) : Masks.bestAsk(mask);
             uint8 bt = Tick.unwrap(bestTick);
 
             if (takerSide == Side.Bid) {
@@ -68,7 +70,7 @@ library Matching {
             }
 
             if (emptied) {
-                mask = MaskLib.clear(mask, bestTick);
+                mask = Masks.clear(mask, bestTick);
                 if (makerSide == Side.Bid) makerBook.bidsMask = mask;
                 else makerBook.asksMask = mask;
             }
@@ -81,7 +83,7 @@ library Matching {
     /// Returns packed uint256:
     /// - bit 255: levelEmptied
     /// - bits [0..127]: filledInLevel (uint128)
-    function _fillOneLevelPacked(AppStorage storage s, BookKey makerBookKey, Tick tick, uint128 remainingToFill)
+    function _fillOneLevelPacked(PlatformStorage storage s, BookKey makerBookKey, Tick tick, uint128 remainingToFill)
         private
         returns (uint256 packed)
     {

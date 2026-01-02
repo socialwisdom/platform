@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {AppStorage, Level, Order} from "../storage/Storage.sol";
-import {BookKey, Tick, OrderId} from "../types/Types.sol";
-import {Keys} from "../lib/Keys.sol";
+import {PlatformStorage} from "../storage/PlatformStorage.sol";
+import {Level, Order} from "../types/Structs.sol";
+import {BookKey, Tick, OrderId} from "../types/IdTypes.sol";
+import {Keys} from "../encoding/Keys.sol";
 
 /// @notice FIFO queue operations for a single price level (bookKey, tick).
 /// Next-only linked list: Order.nextOrderId forms the chain.
@@ -26,7 +27,9 @@ library LevelQueue {
     ///   - tick == tick
     ///   - nextOrderId == 0
     /// - sharesDelta is the order’s initial sharesRemaining to add to level.totalShares.
-    function append(AppStorage storage s, BookKey bookKey, Tick tick, OrderId orderId, uint128 sharesDelta) internal {
+    function append(PlatformStorage storage s, BookKey bookKey, Tick tick, OrderId orderId, uint128 sharesDelta)
+        internal
+    {
         uint256 lk = Keys.levelKey(bookKey, tick);
         Level storage lvl = s.levels[lk];
 
@@ -49,7 +52,7 @@ library LevelQueue {
 
     /// @notice Decreases level totalShares by filledShares (hot-path on every fill).
     /// REQUIRES: filledShares <= lvl.totalShares.
-    function decTotalShares(AppStorage storage s, BookKey bookKey, Tick tick, uint128 filledShares) internal {
+    function decTotalShares(PlatformStorage storage s, BookKey bookKey, Tick tick, uint128 filledShares) internal {
         uint256 lk = Keys.levelKey(bookKey, tick);
         Level storage lvl = s.levels[lk];
         lvl.totalShares -= filledShares;
@@ -61,7 +64,7 @@ library LevelQueue {
     /// REQUIRES:
     /// - Caller has already set the head order's sharesRemaining to 0.
     /// - Level is non-empty.
-    function popHeadIfFilled(AppStorage storage s, BookKey bookKey, Tick tick)
+    function popHeadIfFilled(PlatformStorage storage s, BookKey bookKey, Tick tick)
         internal
         returns (OrderId poppedOrderId, bool levelEmpty)
     {
@@ -94,13 +97,13 @@ library LevelQueue {
     }
 
     /// @notice Reads current head order id for (bookKey,tick). Returns 0 if empty.
-    function headOrderId(AppStorage storage s, BookKey bookKey, Tick tick) internal view returns (OrderId) {
+    function headOrderId(PlatformStorage storage s, BookKey bookKey, Tick tick) internal view returns (OrderId) {
         uint256 lk = Keys.levelKey(bookKey, tick);
         return OrderId.wrap(s.levels[lk].headOrderId);
     }
 
     /// @notice Reads current totalShares for (bookKey,tick).
-    function totalShares(AppStorage storage s, BookKey bookKey, Tick tick) internal view returns (uint128) {
+    function totalShares(PlatformStorage storage s, BookKey bookKey, Tick tick) internal view returns (uint128) {
         uint256 lk = Keys.levelKey(bookKey, tick);
         return s.levels[lk].totalShares;
     }

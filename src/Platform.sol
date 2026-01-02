@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {AppStorage} from "./storage/Storage.sol";
-import {BookKeyLib} from "./lib/BookKeyLib.sol";
-import {Keys} from "./lib/Keys.sol";
-import {Order} from "./storage/Storage.sol";
-import {StorageLib} from "./storage/StorageLib.sol";
-import {TickLib} from "./lib/TickLib.sol";
-import {UserId, BookKey, Tick, OrderId, Side, TooManyCancelCandidates} from "./types/Types.sol";
+import {PlatformStorage} from "./storage/PlatformStorage.sol";
+import {StorageSlot} from "./storage/StorageSlot.sol";
+import {Order} from "./types/Structs.sol";
+import {UserId, BookKey, Tick, OrderId} from "./types/IdTypes.sol";
+import {Side} from "./types/Enums.sol";
+import {TooManyCancelCandidates} from "./types/Errors.sol";
+
+import {BookKeyLib} from "./encoding/BookKeyLib.sol";
+import {Keys} from "./encoding/Keys.sol";
+import {TickLib} from "./encoding/TickLib.sol";
 
 import {OrderBook} from "./core/OrderBook.sol";
 
@@ -36,17 +39,17 @@ contract Platform {
     );
 
     function userIdOf(address user) external view returns (uint64) {
-        AppStorage storage s = StorageLib.s();
+        PlatformStorage storage s = StorageSlot.layout();
         return UserId.unwrap(s.userIdOf[user]);
     }
 
     function userOfId(uint64 id) external view returns (address) {
-        AppStorage storage s = StorageLib.s();
+        PlatformStorage storage s = StorageSlot.layout();
         return s.userOfId[UserId.wrap(id)];
     }
 
     function register() external returns (uint64 id) {
-        AppStorage storage s = StorageLib.s();
+        PlatformStorage storage s = StorageSlot.layout();
         UserId uid = s.userIdOf[msg.sender];
         if (UserId.unwrap(uid) != 0) return UserId.unwrap(uid);
 
@@ -54,13 +57,13 @@ contract Platform {
         return UserId.unwrap(uid);
     }
 
-    function _getOrRegister(AppStorage storage s, address user) internal returns (UserId) {
+    function _getOrRegister(PlatformStorage storage s, address user) internal returns (UserId) {
         UserId uid = s.userIdOf[user];
         if (UserId.unwrap(uid) != 0) return uid;
         return _register(s, user);
     }
 
-    function _register(AppStorage storage s, address user) internal returns (UserId uid) {
+    function _register(PlatformStorage storage s, address user) internal returns (UserId uid) {
         UserId next = s.nextUserId;
         if (UserId.unwrap(next) == 0) next = UserId.wrap(1);
 
@@ -80,7 +83,7 @@ contract Platform {
         TickLib.check(limitTick);
         BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, side);
 
-        AppStorage storage s = StorageLib.s();
+        PlatformStorage storage s = StorageSlot.layout();
         UserId uid = _getOrRegister(s, msg.sender);
 
         OrderBook.PlaceResult memory r = OrderBook.placeLimit(s, uid, bookKey, limitTick, sharesRequested);
@@ -107,7 +110,7 @@ contract Platform {
         TickLib.check(limitTick);
         BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, side);
 
-        AppStorage storage s = StorageLib.s();
+        PlatformStorage storage s = StorageSlot.layout();
         _getOrRegister(s, msg.sender);
 
         OrderBook.TakeResult memory r = OrderBook.take(s, bookKey, limitTick, sharesRequested, minFill);
@@ -124,7 +127,7 @@ contract Platform {
 
         BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, side);
 
-        AppStorage storage s = StorageLib.s();
+        PlatformStorage storage s = StorageSlot.layout();
         UserId uid = _getOrRegister(s, msg.sender);
 
         OrderBook.CancelResult memory r = OrderBook.cancel(s, uid, bookKey, orderId, prevCandidates);
@@ -139,7 +142,7 @@ contract Platform {
         returns (OrderId[] memory)
     {
         BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, side);
-        AppStorage storage s = StorageLib.s();
+        PlatformStorage storage s = StorageSlot.layout();
 
         uint256 n = maxN > 16 ? 16 : maxN;
         if (n == 0) return new OrderId[](0);
@@ -155,7 +158,7 @@ contract Platform {
         returns (uint128 remaining, uint128 requested)
     {
         BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, side);
-        AppStorage storage s = StorageLib.s();
+        PlatformStorage storage s = StorageSlot.layout();
         Order storage o = s.orders[Keys.orderKey(bookKey, OrderId.wrap(orderId))];
         return (o.sharesRemaining, o.requestedShares);
     }

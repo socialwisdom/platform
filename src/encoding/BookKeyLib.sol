@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {BookKey, Side} from "../types/Types.sol";
+import {BookKey} from "../types/IdTypes.sol";
+import {Side} from "../types/Enums.sol";
 
 library BookKeyLib {
     uint256 internal constant SIDE_BITS = 8;

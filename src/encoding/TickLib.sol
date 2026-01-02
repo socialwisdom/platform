@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {Tick, InvalidTick} from "../types/Types.sol";
+import {Tick} from "../types/IdTypes.sol";
+import {InvalidTick} from "../types/Errors.sol";
 
 /// @notice Tick helpers. Tick is a discrete price level in [1..99].
 /// Bit mapping is fixed as: tick=1 -> bitIndex=0, tick=99 -> bitIndex=98.

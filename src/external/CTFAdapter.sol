@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {IConditionalTokens} from "../src/interfaces/IConditionalTokens.sol";
+import {IConditionalTokens} from "../interfaces/IConditionalTokens.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -15,7 +15,7 @@ contract GnosisCTF is GnosisERC1155 {
     mapping(bytes32 => uint256) internal _payoutDenominator;
 }
 
-contract GnosisCTFProxy is IConditionalTokens, GnosisCTF {
+contract CTFAdapter is IConditionalTokens, GnosisCTF {
     address public immutable IMPLEMENTATION;
 
     constructor(address _implementation) {

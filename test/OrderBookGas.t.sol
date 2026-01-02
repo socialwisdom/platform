@@ -4,7 +4,8 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 
 import {Platform} from "../src/Platform.sol";
-import {Side, Tick, OrderId} from "../src/types/Types.sol";
+import {Side} from "../src/types/Enums.sol";
+import {Tick, OrderId} from "../src/types/IdTypes.sol";
 
 contract OrderBookGasTest is Test {
     Platform internal platform;
