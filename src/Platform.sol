@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+import {IPlatform} from "./interfaces/IPlatform.sol";
+
 import {PlatformStorage} from "./storage/PlatformStorage.sol";
 import {StorageSlot} from "./storage/StorageSlot.sol";
 import {Order} from "./types/Structs.sol";
@@ -14,29 +16,7 @@ import {TickLib} from "./encoding/TickLib.sol";
 
 import {OrderBook} from "./core/OrderBook.sol";
 
-contract Platform {
-    event UserRegistered(address user, uint64 userId);
-
-    event OrderPlaced(
-        uint64 indexed marketId,
-        uint8 indexed outcomeId,
-        Side side,
-        uint32 orderId,
-        address indexed owner,
-        uint8 tick,
-        uint128 sharesAmount
-    );
-
-    event OrderCancelled(uint64 indexed marketId, uint32 orderId, address indexed owner, uint128 sharesCancelled);
-
-    event Take(
-        uint64 indexed marketId,
-        uint8 indexed outcomeId,
-        Side side,
-        address indexed taker,
-        uint128 sharesRequested,
-        uint128 sharesFilled
-    );
+contract Platform is IPlatform {
 
     function userIdOf(address user) external view returns (uint64) {
         PlatformStorage storage s = StorageSlot.layout();
@@ -92,11 +72,11 @@ contract Platform {
             emit OrderPlaced(
                 marketId,
                 outcomeId,
+                UserId.unwrap(uid),
                 side,
                 OrderId.unwrap(r.placedOrderId),
-                msg.sender,
                 Tick.unwrap(limitTick),
-                r.restingShares
+                sharesRequested
             );
         }
 
@@ -111,11 +91,11 @@ contract Platform {
         BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, side);
 
         PlatformStorage storage s = StorageSlot.layout();
-        _getOrRegister(s, msg.sender);
+        UserId uid = _getOrRegister(s, msg.sender);
 
         OrderBook.TakeResult memory r = OrderBook.take(s, bookKey, limitTick, sharesRequested, minFill);
 
-        emit Take(marketId, outcomeId, side, msg.sender, sharesRequested, r.filledShares);
+        emit Take(marketId, outcomeId, UserId.unwrap(uid), side, Tick.unwrap(limitTick), sharesRequested, r.filledShares);
         return (r.filledShares, r.pointsTraded);
     }
 
@@ -132,7 +112,7 @@ contract Platform {
 
         OrderBook.CancelResult memory r = OrderBook.cancel(s, uid, bookKey, orderId, prevCandidates);
 
-        emit OrderCancelled(marketId, OrderId.unwrap(orderId), msg.sender, r.cancelledShares);
+        emit OrderCancelled(marketId, outcomeId, UserId.unwrap(uid), side, OrderId.unwrap(orderId), Tick.unwrap(r.tick), r.cancelledShares);
         return r.cancelledShares;
     }
 
