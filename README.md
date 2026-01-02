@@ -1,56 +1,145 @@
-# Social Wisdom — Smart Contracts (MVP)
+# Social Wisdom Protocol
 
-This repository contains the smart contracts for the Social Wisdom prediction markets MVP.
+Social Wisdom is an on-chain prediction market protocol with a deterministic limit order book, explicit lifecycle rules, and fully collateralized trading.
 
-The protocol is fully on-chain and implements a deterministic limit order book (price–time priority).
-There is no backend.
+This repository contains the **formal documentation** defining the protocol’s behavior, implementation model, invariants, and integration surface.
 
-## Quick links
+The documents are designed to be:
+- explicit and non-ambiguous,
+- implementation-oriented,
+- free of marketing language,
+- suitable for auditing, implementation, and long-term maintenance.
 
-- Architecture spec (source of truth): [docs/architecture/social-wisdom-mvp.md](docs/architecture/social-wisdom-mvp.md)
+## Documentation Structure
 
-## What this repo includes
+All protocol documentation lives in `/docs`.
 
-- On-chain order book (placeLimit / take / cancel)
-- Shares custody (ERC-1155 outcome positions; Gnosis CTF adapter)
-- Points accounting (free / reserved)
-- Market lifecycle (create, resolve, enable payouts)
-- Fee enforcement (trading fees + winning fee at claim time)
-- Strict redemption gating (adapter callable only by `ORDER_BOOK`)
+### 1. Protocol Overview
 
-## What this repo does NOT include
+**`/docs/protocol/protocol-overview.md`**
 
-- Frontend / UI
-- Indexer
-- Oracle implementation
-- Backend-assisted matching
-- AMM logic
+High-level conceptual description of the system.
 
+Defines:
+- core entities and terminology,
+- what markets, orders, shares, and Points are,
+- custody, fees, and resolution at a conceptual level,
+- the mental model of how value flows through the protocol.
 
-## Canonical specification (source of truth)
+This is the entry point for understanding *what the protocol is*.
 
-This repository is spec-driven.
+### 2. Protocol Specification
 
-Read first:
+**`/docs/protocol/protocol-specification.md`**
 
-- [docs/architecture/social-wisdom-mvp.md](docs/architecture/social-wisdom-mvp.md) — canonical architecture, storage layout, events, invariants
+Behavioral specification of the protocol.
 
-If contract code and documentation diverge, the architecture spec wins.
+Defines:
+- allowed and disallowed actions,
+- market lifecycle and state transitions,
+- trading semantics and order matching rules,
+- fee application and settlement behavior,
+- deposits, withdrawals, and custody rules.
 
-## Development rules (non-negotiable)
+This document defines *how the protocol behaves* in all key situations.
 
-- Do not change storage layout without explicit migration planning.
-- Do not remove typed keys or packed structs.
-- Do not bypass redemption gating.
-- Do not weaken lifecycle restrictions.
-- Do not add privileged fund-moving paths.
-- Always preserve listed invariants.
+### 3. Protocol Implementation
 
+**`/docs/implementation/protocol-implementation.md`**
+
+Concrete on-chain design and smart contract architecture.
+
+Defines:
+- contract structure and responsibilities,
+- storage layout and packing,
+- identifiers, keys, and encoding schemes,
+- order book internals,
+- trading APIs and internal flows,
+- fee accounting,
+- events,
+- meta-transactions,
+- pausing, administration, and upgrade mechanics.
+
+This document defines *how the protocol is implemented on-chain*.
+
+### 4. Protocol Invariants
+
+**`/docs/protocol/protocol-invariants.md`**
+
+A compact, authoritative list of invariants aggregated from all other documents.
+
+Defines:
+- accounting and collateralization guarantees,
+- order book correctness conditions,
+- lifecycle and resolution guarantees,
+- fee and custody safety properties,
+- upgrade and admin constraints.
+
+Any violation of an invariant is a correctness or security bug.
+
+### 5. Protocol Upgradability Specification
+
+**`/docs/protocol/protocol-upgradability-specification.md`**
+
+Defines the proxy-based upgrade model.
+
+Covers:
+- proxy architecture,
+- upgrade authority,
+- storage compatibility rules,
+- behavioral preservation requirements,
+- constraints on upgrades.
+
+This document defines *how the protocol can evolve safely*.
+
+### 6. Protocol Integration Guide
+
+**`/docs/integration/protocol-integration-guide.md`**
+
+Guide for external consumers.
+
+Intended for:
+- frontends,
+- bots and market makers,
+- indexers and analytics systems.
+
+Explains:
+- how to read state via views and events,
+- how to reconstruct markets and order books,
+- how to submit trades, cancellations, claims,
+- UX expectations around fees, resolution, and balances.
+
+This document defines *how to work with the protocol from the outside*.
+
+## Reading Order (Recommended)
+
+1. `protocol-overview.md`
+2. `protocol-specification.md`
+3. `protocol-implementation.md`
+4. `protocol-invariants.md`
+5. `protocol-upgradability-specification.md`
+6. `protocol-integration-guide.md`
+
+## Design Philosophy (Brief)
+
+- Deterministic execution
+- Explicit state transitions
+- Full collateralization
+- No implicit behavior
+- No hidden leverage
+- Clear custody boundaries
+- Upgradeable without breaking invariants
+
+If a rule is not explicitly defined in these documents, it is intentionally not part of the protocol.
 
 ## Status
 
-MVP. Correctness and determinism take precedence over gas optimization.
+Documentation reflects the **current intended protocol design**.
 
+Implementation must conform to:
+- the specification,
+- the invariants,
+- and the upgradability constraints.
 
 ## License
 

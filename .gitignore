@@ -8,11 +8,15 @@ out/
 /broadcast/**/dry-run/
 
 # Docs
-# Ignore everything in docs/ except docs/architecture/**
+# Ignore everything in docs/ except docs/{protocol,implementation,integration}
 docs/**
 !docs/
-!docs/architecture/
-!docs/architecture/**
+!docs/protocol
+!docs/protocol/**
+!docs/implementation
+!docs/implementation/**
+!docs/integration
+!docs/integration/**
 
 # Dotenv file
 .env
