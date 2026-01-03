@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {Side} from "../types/Enums.sol";
-import {Tick, OrderId} from "../types/IdTypes.sol";
-
 /// @notice IPlatform defines the external API of the Social Wisdom protocol.
 /// All events and function signatures for user-facing operations.
 /// Events are primary for observation/indexing; views provide canonical state.
@@ -42,7 +39,7 @@ interface IPlatform {
         uint64 indexed marketId,
         uint8 indexed outcomeId,
         uint64 indexed ownerId,
-        Side side,
+        uint8 side,
         uint32 orderId,
         uint8 tick,
         uint128 sharesRequested
@@ -53,7 +50,7 @@ interface IPlatform {
         uint64 indexed marketId,
         uint8 indexed outcomeId,
         uint64 indexed ownerId,
-        Side side,
+        uint8 side,
         uint32 orderId,
         uint8 tick,
         uint128 sharesCancelled
@@ -66,7 +63,7 @@ interface IPlatform {
         uint64 indexed makerId,
         uint64 indexed takerId,
         uint8 outcomeId,
-        Side side,
+        uint8 side,
         uint32 makerOrderId,
         uint32 takerOrderId,
         uint8 tick,
@@ -81,7 +78,7 @@ interface IPlatform {
         uint64 indexed marketId,
         uint8 indexed outcomeId,
         uint64 indexed takerId,
-        Side side,
+        uint8 side,
         uint8 maxTick,
         uint128 sharesRequested,
         uint128 sharesFilled
@@ -168,7 +165,7 @@ interface IPlatform {
     /// @return orderIdOr0 The orderId if the order rests, or 0 if fully filled immediately.
     /// @return filledShares Shares filled immediately by this limit order.
     /// @return pointsTraded Points exchanged in this order.
-    function placeLimit(uint64 marketId, uint8 outcomeId, Side side, Tick limitTick, uint128 sharesRequested)
+    function placeLimit(uint64 marketId, uint8 outcomeId, uint8 side, uint8 limitTick, uint128 sharesRequested)
         external
         returns (uint32 orderIdOr0, uint128 filledShares, uint256 pointsTraded);
 
@@ -181,9 +178,14 @@ interface IPlatform {
     /// @param minFill Minimum shares that must be filled, or revert.
     /// @return filledShares Shares actually filled.
     /// @return pointsTraded Points exchanged.
-    function take(uint64 marketId, uint8 outcomeId, Side side, Tick limitTick, uint128 sharesRequested, uint128 minFill)
-        external
-        returns (uint128 filledShares, uint256 pointsTraded);
+    function take(
+        uint64 marketId,
+        uint8 outcomeId,
+        uint8 side,
+        uint8 limitTick,
+        uint128 sharesRequested,
+        uint128 minFill
+    ) external returns (uint128 filledShares, uint256 pointsTraded);
 
     /// @notice Cancel an existing limit order (allowed in all market states).
     /// @param marketId The market the order is in.
@@ -192,7 +194,7 @@ interface IPlatform {
     /// @param orderId The order to cancel.
     /// @param prevCandidates Previous order IDs to help locate the target (chain traversal optimization, max 16).
     /// @return cancelledShares Shares that were cancelled.
-    function cancel(uint64 marketId, uint8 outcomeId, Side side, OrderId orderId, OrderId[] calldata prevCandidates)
+    function cancel(uint64 marketId, uint8 outcomeId, uint8 side, uint32 orderId, uint32[] calldata prevCandidates)
         external
         returns (uint128 cancelledShares);
 
@@ -206,10 +208,10 @@ interface IPlatform {
     /// @param targetOrderId The order we are trying to reach.
     /// @param maxN Maximum number of candidates to return (will be capped at 16).
     /// @return Ordered array of candidate previous order IDs.
-    function getCancelCandidates(uint64 marketId, uint8 outcomeId, Side side, OrderId targetOrderId, uint256 maxN)
+    function getCancelCandidates(uint64 marketId, uint8 outcomeId, uint8 side, uint32 targetOrderId, uint256 maxN)
         external
         view
-        returns (OrderId[] memory);
+        returns (uint32[] memory);
 
     /// @notice Get the remaining and requested shares for a specific order.
     /// WARNING: Intended for testing/indexing only; intended for removal/guarding in production.
@@ -219,7 +221,7 @@ interface IPlatform {
     /// @param orderId The order ID.
     /// @return remaining Shares remaining to be filled.
     /// @return requested Total shares originally requested.
-    function getOrderRemainingAndRequested(uint64 marketId, uint8 outcomeId, Side side, uint32 orderId)
+    function getOrderRemainingAndRequested(uint64 marketId, uint8 outcomeId, uint8 side, uint32 orderId)
         external
         view
         returns (uint128 remaining, uint128 requested);

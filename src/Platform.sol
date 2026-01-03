@@ -8,7 +8,7 @@ import {StorageSlot} from "./storage/StorageSlot.sol";
 import {Order} from "./types/Structs.sol";
 import {UserId, BookKey, Tick, OrderId} from "./types/IdTypes.sol";
 import {Side} from "./types/Enums.sol";
-import {MinFillNotMet, TooManyCancelCandidates, UnregisteredUser} from "./types/Errors.sol";
+import {MinFillNotMet, TooManyCancelCandidates, UnregisteredUser, InvalidInput} from "./types/Errors.sol";
 
 import {BookKeyLib} from "./encoding/BookKeyLib.sol";
 import {Keys} from "./encoding/Keys.sol";
@@ -43,6 +43,8 @@ contract Platform is IPlatform {
     // ==================== Points Deposits & Withdrawals ====================
 
     function deposit(uint128 amount) external {
+        if (amount == 0) revert InvalidInput();
+
         PlatformStorage storage s = StorageSlot.layout();
         UserId uid = _getOrRegister(s, msg.sender);
 
@@ -52,6 +54,8 @@ contract Platform is IPlatform {
     }
 
     function withdraw(uint128 amount) external {
+        if (amount == 0) revert InvalidInput();
+
         PlatformStorage storage s = StorageSlot.layout();
         UserId uid = s.userIdOf[msg.sender];
 
@@ -65,6 +69,8 @@ contract Platform is IPlatform {
     // ==================== Shares Deposits & Withdrawals ====================
 
     function depositShares(uint64 marketId, uint8 outcomeId, uint128 amount) external {
+        if (amount == 0) revert InvalidInput();
+
         PlatformStorage storage s = StorageSlot.layout();
         UserId uid = _getOrRegister(s, msg.sender);
 
@@ -77,6 +83,8 @@ contract Platform is IPlatform {
     }
 
     function withdrawShares(uint64 marketId, uint8 outcomeId, uint128 amount) external {
+        if (amount == 0) revert InvalidInput();
+
         PlatformStorage storage s = StorageSlot.layout();
         UserId uid = s.userIdOf[msg.sender];
 
@@ -92,105 +100,122 @@ contract Platform is IPlatform {
 
     // ==================== Trading APIs ====================
 
-    function placeLimit(uint64 marketId, uint8 outcomeId, Side side, Tick limitTick, uint128 sharesRequested)
+    function placeLimit(uint64 marketId, uint8 outcomeId, uint8 side, uint8 limitTick, uint128 sharesRequested)
         external
-        returns (uint32 orderIdOr0, uint128 filledShares, uint256 pointsTraded)
+        returns (uint32 orderId, uint128 filledShares, uint256 pointsTraded)
     {
-        // Validate inputs
-        TickLib.check(limitTick);
-        require(sharesRequested > 0, "sharesRequested must be > 0");
+        if (sharesRequested == 0) revert InvalidInput();
+        if (side > 1) revert InvalidInput();
+        {
+            Tick tick = Tick.wrap(limitTick);
+            TickLib.check(tick);
 
-        BookKey takerBookKey = BookKeyLib.pack(marketId, outcomeId, side);
-        PlatformStorage storage s = StorageSlot.layout();
-        UserId uid = _getOrRegister(s, msg.sender);
+            PlatformStorage storage s = StorageSlot.layout();
+            UserId uid = _getOrRegister(s, msg.sender);
 
-        OrderBook.PlaceResult memory r = OrderBook.placeLimit(s, uid, takerBookKey, limitTick, sharesRequested);
-        emit OrderPlaced(
-            marketId,
-            outcomeId,
-            UserId.unwrap(uid),
-            side,
-            OrderId.unwrap(r.placedOrderId),
-            Tick.unwrap(limitTick),
-            sharesRequested
-        );
+            OrderId placedOrderId =
+                OrderBook.placeLimit(s, uid, BookKeyLib.pack(marketId, outcomeId, Side(side)), tick, sharesRequested);
 
-        // Match resting portion and get filled amounts
-        (uint128 matchedFilled, uint256 matchedPoints) =
-            _matchPlacedOrder(s, marketId, outcomeId, side, limitTick, r.placedOrderId, r.restingShares, uid);
+            emit OrderPlaced(
+                marketId, outcomeId, UserId.unwrap(uid), side, OrderId.unwrap(placedOrderId), limitTick, sharesRequested
+            );
 
-        return (OrderId.unwrap(r.placedOrderId), matchedFilled, matchedPoints);
+            (filledShares, pointsTraded) =
+                _matchPlacedOrder(s, marketId, outcomeId, Side(side), tick, placedOrderId, sharesRequested, uid);
+
+            orderId = OrderId.unwrap(placedOrderId);
+        }
     }
 
-    function take(uint64 marketId, uint8 outcomeId, Side side, Tick limitTick, uint128 sharesRequested, uint128 minFill)
-        external
-        returns (uint128 filledShares, uint256 pointsTraded)
-    {
-        // Validate inputs
-        TickLib.check(limitTick);
-        require(sharesRequested > 0, "sharesRequested must be > 0");
+    function take(
+        uint64 marketId,
+        uint8 outcomeId,
+        uint8 side,
+        uint8 limitTick,
+        uint128 sharesRequested,
+        uint128 minFill
+    ) external returns (uint128 filledShares, uint256 pointsTraded) {
+        if (sharesRequested == 0) revert InvalidInput();
+        if (side > 1) revert InvalidInput();
+        TickLib.check(Tick.wrap(limitTick));
+
+        Side side_ = Side(side);
+        Tick tick_ = Tick.wrap(limitTick);
 
         PlatformStorage storage s = StorageSlot.layout();
         UserId uid = _getOrRegister(s, msg.sender);
 
-        uint128 totalFilled = _matchTakeOrder(s, marketId, outcomeId, side, limitTick, sharesRequested, uid);
+        uint128 totalFilled = _matchTakeOrder(s, marketId, outcomeId, side_, tick_, sharesRequested, uid);
 
         if (totalFilled < minFill) revert MinFillNotMet(totalFilled, minFill);
 
-        uint256 totalPointsTraded = uint256(totalFilled) * uint256(Tick.unwrap(limitTick));
-        emit Take(marketId, outcomeId, UserId.unwrap(uid), side, Tick.unwrap(limitTick), sharesRequested, totalFilled);
+        uint256 totalPointsTraded = uint256(totalFilled) * uint256(limitTick);
+        emit Take(marketId, outcomeId, UserId.unwrap(uid), side, limitTick, sharesRequested, totalFilled);
         return (totalFilled, totalPointsTraded);
     }
 
-    function cancel(uint64 marketId, uint8 outcomeId, Side side, OrderId orderId, OrderId[] calldata prevCandidates)
+    function cancel(uint64 marketId, uint8 outcomeId, uint8 side, uint32 orderId, uint32[] calldata prevCandidates)
         external
         returns (uint128 cancelledShares)
     {
         if (prevCandidates.length > 16) revert TooManyCancelCandidates();
+        if (side > 1) revert InvalidInput();
 
-        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, side);
+        Side side_ = Side(side);
+        OrderId orderId_ = OrderId.wrap(orderId);
+
+        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, side_);
 
         PlatformStorage storage s = StorageSlot.layout();
         UserId uid = _getOrRegister(s, msg.sender);
 
-        OrderBook.CancelResult memory r = OrderBook.cancel(s, uid, bookKey, orderId, prevCandidates);
+        (uint128 cancelledShares,, Tick tick) = OrderBook.cancel(s, uid, bookKey, orderId_, prevCandidates);
 
-        emit OrderCancelled(
-            marketId,
-            outcomeId,
-            UserId.unwrap(uid),
-            side,
-            OrderId.unwrap(orderId),
-            Tick.unwrap(r.tick),
-            r.cancelledShares
-        );
-        return r.cancelledShares;
+        emit OrderCancelled(marketId, outcomeId, UserId.unwrap(uid), side, orderId, Tick.unwrap(tick), cancelledShares);
+        return cancelledShares;
     }
 
     // ==================== Views ====================
 
-    function getCancelCandidates(uint64 marketId, uint8 outcomeId, Side side, OrderId targetOrderId, uint256 maxN)
+    function getCancelCandidates(uint64 marketId, uint8 outcomeId, uint8 side, uint32 targetOrderId, uint256 maxN)
         external
         view
-        returns (OrderId[] memory)
+        returns (uint32[] memory)
     {
-        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, side);
+        if (side > 1) revert InvalidInput();
+
+        Side side_ = Side(side);
+        OrderId targetOrderId_ = OrderId.wrap(targetOrderId);
+
+        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, side_);
         PlatformStorage storage s = StorageSlot.layout();
 
         uint256 n = maxN > 16 ? 16 : maxN;
-        if (n == 0) return new OrderId[](0);
+        if (n == 0) return new uint32[](0);
 
-        return OrderBook.collectPrevCandidates(s, bookKey, targetOrderId, n);
+        OrderId[] memory candidates = OrderBook.collectPrevCandidates(s, bookKey, targetOrderId_, n);
+
+        // Cast result back to uint32[]
+        uint32[] memory result = new uint32[](candidates.length);
+        for (uint256 i = 0; i < candidates.length; i++) {
+            result[i] = OrderId.unwrap(candidates[i]);
+        }
+        return result;
     }
 
-    function getOrderRemainingAndRequested(uint64 marketId, uint8 outcomeId, Side side, uint32 orderId)
+    function getOrderRemainingAndRequested(uint64 marketId, uint8 outcomeId, uint8 side, uint32 orderId)
         external
         view
         returns (uint128 remaining, uint128 requested)
     {
-        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, side);
+        if (side > 1) revert InvalidInput();
+
+        Side side_ = Side(side);
+        OrderId orderId_ = OrderId.wrap(orderId);
+
+        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, side_);
         PlatformStorage storage s = StorageSlot.layout();
-        Order storage o = s.orders[Keys.orderKey(bookKey, OrderId.wrap(orderId))];
+        Order storage o = s.orders[Keys.orderKey(bookKey, orderId_)];
         return (o.sharesRemaining, o.requestedShares);
     }
 
@@ -239,7 +264,7 @@ contract Platform is IPlatform {
                 UserId.unwrap(s.orders[Keys.orderKey(makerBookKey, fill.makerId)].ownerId),
                 UserId.unwrap(takerUserId),
                 outcomeId,
-                makerSide,
+                uint8(makerSide),
                 OrderId.unwrap(fill.makerId),
                 OrderId.unwrap(placedOrderId),
                 Tick.unwrap(fill.tick),
@@ -282,7 +307,7 @@ contract Platform is IPlatform {
                 UserId.unwrap(makerOrder.ownerId),
                 UserId.unwrap(takerUserId),
                 outcomeId,
-                makerSide,
+                uint8(makerSide),
                 OrderId.unwrap(fill.makerId),
                 0,
                 Tick.unwrap(fill.tick),

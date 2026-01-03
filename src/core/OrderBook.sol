@@ -14,34 +14,19 @@ import {LevelQueue} from "./LevelQueue.sol";
 library OrderBook {
     uint256 internal constant CANCEL_CANDIDATES_CAP = 16;
 
-    struct PlaceResult {
-        uint128 filledShares;
-        uint256 pointsTraded; // sum(fill * tick)
-        OrderId placedOrderId; // 0 if fully filled (no resting order)
-        uint128 restingShares; // 0 if none
-    }
-
-    struct CancelResult {
-        Tick tick;
-        uint128 cancelledShares;
-        bool levelEmptied;
-    }
-
     // -----------------------------
     // placeLimit
     // -----------------------------
 
+    // TODO: fix book key usage
     function placeLimit(
         PlatformStorage storage s,
         UserId userId,
         BookKey takerBookKey,
         Tick limitTick,
         uint128 sharesRequested
-    ) internal returns (PlaceResult memory r) {
-        if (sharesRequested == 0) return r;
-
+    ) internal returns (OrderId placedOrderId) {
         uint128 remaining = sharesRequested;
-        if (remaining == 0) return r;
 
         BookState storage book = s.books[takerBookKey];
 
@@ -71,37 +56,31 @@ library OrderBook {
             book.asksMask = Masks.set(book.asksMask, limitTick);
         }
 
-        r.placedOrderId = newId;
-        r.restingShares = remaining;
-        return r;
+        return newId;
     }
-
-    // -----------------------------
-    // take
-    // -----------------------------
 
     // -----------------------------
     // cancel (with candidates)
     // -----------------------------
 
+    // TODO: check cancellation status and/or update it
     function cancel(
         PlatformStorage storage s,
         UserId userId,
         BookKey bookKey,
         OrderId orderId,
-        OrderId[] calldata prevCandidates
-    ) internal returns (CancelResult memory r) {
+        uint32[] calldata prevCandidates
+    ) internal returns (uint128 cancelledShares, bool levelEmptied, Tick tick) {
         Order storage ord = s.orders[Keys.orderKey(bookKey, orderId)];
 
         if (UserId.unwrap(ord.ownerId) != UserId.unwrap(userId)) revert NotOrderOwner(orderId);
 
-        Tick tick = ord.tick;
-        r.tick = tick;
+        tick = ord.tick;
 
         uint128 remaining = ord.sharesRemaining;
         if (remaining == 0) {
-            r.cancelledShares = 0;
-            return r;
+            cancelledShares = 0;
+            return (cancelledShares, false, tick);
         }
 
         Level storage lvl = s.levels[Keys.levelKey(bookKey, tick)];
@@ -117,11 +96,11 @@ library OrderBook {
 
             lvl.totalShares -= remaining;
 
-            r.cancelledShares = remaining;
-            r.levelEmptied = emptied;
+            cancelledShares = remaining;
+            levelEmptied = emptied;
 
             _maybeClearMaskIfEmpty(s, bookKey, tick, emptied);
-            return r;
+            return (cancelledShares, levelEmptied, tick);
         }
 
         // Case 2: non-head cancel via candidates (O(N))
@@ -130,11 +109,10 @@ library OrderBook {
             OrderId prevIdFound = _findPrevCandidate(s, bookKey, orderId, prevCandidates);
             if (OrderId.unwrap(prevIdFound) == 0) revert PrevCandidateNotFound(orderId);
 
-            bool emptied2 = _unlinkNonHead(s, bookKey, tick, orderId, prevIdFound, next, remaining);
+            levelEmptied = _unlinkNonHead(s, bookKey, tick, orderId, prevIdFound, next, remaining);
 
-            r.cancelledShares = remaining;
-            r.levelEmptied = emptied2;
-            return r;
+            cancelledShares = remaining;
+            return (cancelledShares, levelEmptied, tick);
         }
     }
 
@@ -142,12 +120,12 @@ library OrderBook {
         PlatformStorage storage s,
         BookKey bookKey,
         OrderId orderId,
-        OrderId[] calldata prevCandidates
+        uint32[] calldata prevCandidates
     ) private view returns (OrderId) {
         uint256 len = prevCandidates.length;
 
         for (uint256 i = 0; i < len; i++) {
-            OrderId prevId = prevCandidates[i];
+            OrderId prevId = OrderId.wrap(prevCandidates[i]);
             if (OrderId.unwrap(prevId) == 0) continue;
 
             Order storage prev = s.orders[Keys.orderKey(bookKey, prevId)];
