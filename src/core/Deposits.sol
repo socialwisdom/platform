@@ -94,7 +94,7 @@ library Deposits {
         // TODO: add actual IERC1155 transfer
 
         // Credit user's free Shares balance
-        Accounting.addFreeShares(s, userId, bookKey, amount);
+        Accounting.removeFreeShares(s, userId, bookKey, amount);
 
         // NOTE: Platform.withdrawShares() will emit SharesWithdrawn event
     }
