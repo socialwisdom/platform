@@ -99,9 +99,7 @@ interface IPlatform {
     event SharesDeposited(uint64 indexed userId, uint64 indexed marketId, uint8 indexed outcomeId, uint128 amount);
 
     /// @notice Emitted after balances debit and ERC-1155 transfer out succeeds.
-    event SharesWithdrawn(
-        uint64 indexed userId, uint64 indexed marketId, uint8 indexed outcomeId, address to, uint128 amount
-    );
+    event SharesWithdrawn(uint64 indexed userId, uint64 indexed marketId, uint8 indexed outcomeId, uint128 amount);
 
     // ==================== Claim Events ====================
 
@@ -131,6 +129,32 @@ interface IPlatform {
     /// @notice Register the caller as a new user, or return their existing userId.
     /// @return id The userId assigned to msg.sender.
     function register() external returns (uint64 id);
+
+    // ==================== Points Deposits & Withdrawals ====================
+
+    /// @notice Deposit Points into the platform.
+    /// @param amount Points to deposit.
+    function deposit(uint128 amount) external;
+
+    /// @notice Withdraw free Points from the platform.
+    /// Only free (non-reserved) Points can be withdrawn.
+    /// @param amount Points to withdraw.
+    function withdraw(uint128 amount) external;
+
+    // ==================== Shares Deposits & Withdrawals ====================
+
+    /// @notice Deposit Shares into the platform.
+    /// @param marketId The market these shares are for.
+    /// @param outcomeId The outcome index for these shares.
+    /// @param amount Shares to deposit.
+    function depositShares(uint64 marketId, uint8 outcomeId, uint128 amount) external;
+
+    /// @notice Withdraw free Shares from the platform.
+    /// Only free (non-reserved) Shares can be withdrawn.
+    /// @param marketId The market these shares are for.
+    /// @param outcomeId The outcome index for these shares.
+    /// @param amount Shares to withdraw.
+    function withdrawShares(uint64 marketId, uint8 outcomeId, uint128 amount) external;
 
     // ==================== Trading APIs ====================
 

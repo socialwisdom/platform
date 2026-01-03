@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {UserId, BookKey} from "../types/IdTypes.sol";
-import {BookState, Level, Order} from "../types/Structs.sol";
+import {BookState, Level, Order, PointsBalance, SharesBalance} from "../types/Structs.sol";
 
 /// @notice Canonical storage layout (orderbook-only phase).
 /// Append-only: when adding new subsystems later, ONLY append new fields/sections.
@@ -34,5 +34,14 @@ struct PlatformStorage {
     mapping(address => UserId) userIdOf; // UserId(0) = unregistered
     mapping(UserId => address) userOfId;
     UserId nextUserId; // starts at 1
+
+    // --- Points accounting (per user) ---
+    // Tracks free and reserved Points for each user
+    mapping(UserId => PointsBalance) pointsBalances;
+
+    // --- Shares accounting (per user per book) ---
+    // Tracks free and reserved shares for each user in each order book
+    mapping(UserId => mapping(BookKey => SharesBalance)) sharesBalances;
+
     // (Append new storage below this line in future iterations.)
 }

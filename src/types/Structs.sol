@@ -5,6 +5,34 @@ import {UserId, Tick, OrderId} from "./IdTypes.sol";
 
 /// @notice Shared storage and data structures used across the codebase.
 
+/// @notice Points balance per user.
+/// STORAGE PACKING:
+/// - SLOT 0:
+///   - uint128 free        (16 bytes) - available for trading
+///   - uint128 reserved    (16 bytes) - locked in open orders + obligations
+///
+/// INVARIANT:
+/// - reserved <= free + reserved (total)
+/// - free + reserved always >= 0 (never negative)
+struct PointsBalance {
+    uint128 free;
+    uint128 reserved;
+}
+
+/// @notice Shares balance per user per book.
+/// STORAGE PACKING:
+/// - SLOT 0:
+///   - uint128 free        (16 bytes) - available to sell / withdraw
+///   - uint128 reserved    (16 bytes) - locked in open orders
+///
+/// INVARIANT:
+/// - reserved <= free + reserved (total)
+/// - free + reserved always >= 0 (never negative)
+struct SharesBalance {
+    uint128 free;
+    uint128 reserved;
+}
+
 /// @notice Per-book aggregate state.
 /// STORAGE PACKING (Solidity, by field order):
 /// - SLOT 0:

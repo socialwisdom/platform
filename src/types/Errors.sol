@@ -12,6 +12,15 @@ error Unauthorized();
 error InvalidInput();
 error EmptyMask();
 
+// User registry errors
+error UnregisteredUser();
+
+// Balance / accounting errors
+error InsufficientFreePoints(uint128 available, uint128 required);
+error InsufficientFreeShares(uint128 available, uint128 required);
+error InsufficientReservedPoints(uint128 available, uint128 required);
+error InsufficientReservedShares(uint128 available, uint128 required);
+
 // OrderBook / matching errors (shared across callers)
 error MinFillNotMet(uint128 filled, uint128 minFill);
 error NotOrderOwner(OrderId orderId);

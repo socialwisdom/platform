@@ -8,7 +8,7 @@ import {StorageSlot} from "./storage/StorageSlot.sol";
 import {Order} from "./types/Structs.sol";
 import {UserId, BookKey, Tick, OrderId} from "./types/IdTypes.sol";
 import {Side} from "./types/Enums.sol";
-import {MinFillNotMet, TooManyCancelCandidates} from "./types/Errors.sol";
+import {MinFillNotMet, TooManyCancelCandidates, UnregisteredUser} from "./types/Errors.sol";
 
 import {BookKeyLib} from "./encoding/BookKeyLib.sol";
 import {Keys} from "./encoding/Keys.sol";
@@ -16,6 +16,7 @@ import {TickLib} from "./encoding/TickLib.sol";
 
 import {OrderBook} from "./core/OrderBook.sol";
 import {Matching} from "./core/Matching.sol";
+import {Deposits} from "./core/Deposits.sol";
 
 contract Platform is IPlatform {
     // ==================== User Registry ====================
@@ -37,6 +38,56 @@ contract Platform is IPlatform {
 
         uid = _register(s, msg.sender);
         return UserId.unwrap(uid);
+    }
+
+    // ==================== Points Deposits & Withdrawals ====================
+
+    function deposit(uint128 amount) external {
+        PlatformStorage storage s = StorageSlot.layout();
+        UserId uid = _getOrRegister(s, msg.sender);
+
+        Deposits.doDeposit(s, uid, amount);
+
+        emit PointsDeposited(UserId.unwrap(uid), msg.sender, amount);
+    }
+
+    function withdraw(uint128 amount) external {
+        PlatformStorage storage s = StorageSlot.layout();
+        UserId uid = s.userIdOf[msg.sender];
+
+        if (UserId.unwrap(uid) == 0) revert UnregisteredUser();
+
+        Deposits.doWithdraw(s, uid, amount);
+
+        emit PointsWithdrawn(UserId.unwrap(uid), msg.sender, amount);
+    }
+
+    // ==================== Shares Deposits & Withdrawals ====================
+
+    function depositShares(uint64 marketId, uint8 outcomeId, uint128 amount) external {
+        PlatformStorage storage s = StorageSlot.layout();
+        UserId uid = _getOrRegister(s, msg.sender);
+
+        // FIXME: impl proper bookKey / positionId.
+        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side.Ask);
+
+        Deposits.doSharesDeposit(s, uid, bookKey, amount);
+
+        emit SharesDeposited(UserId.unwrap(uid), marketId, outcomeId, amount);
+    }
+
+    function withdrawShares(uint64 marketId, uint8 outcomeId, uint128 amount) external {
+        PlatformStorage storage s = StorageSlot.layout();
+        UserId uid = s.userIdOf[msg.sender];
+
+        if (UserId.unwrap(uid) == 0) revert UnregisteredUser();
+
+        // FIXME: impl proper bookKey / positionId.
+        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side.Ask);
+
+        Deposits.doSharesWithdraw(s, uid, bookKey, amount);
+
+        emit SharesWithdrawn(UserId.unwrap(uid), marketId, outcomeId, amount);
     }
 
     // ==================== Trading APIs ====================

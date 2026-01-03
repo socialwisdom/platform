@@ -726,7 +726,6 @@ event SharesWithdrawn(
     uint64 indexed userId,
     uint64 indexed marketId,
     uint8 indexed outcomeId,
-    address to,
     uint128 amount
 );
 ```
