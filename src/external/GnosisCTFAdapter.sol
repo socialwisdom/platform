@@ -4,21 +4,22 @@ pragma solidity ^0.8.30;
 import {IConditionalTokens} from "../interfaces/IConditionalTokens.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract GnosisERC1155 {
+contract ERC1155Storage {
     mapping(uint256 => mapping(address => uint256)) internal _balances;
     mapping(address => mapping(address => bool)) internal _operatorApprovals;
 }
 
-contract GnosisCTF is GnosisERC1155 {
+contract GnosisCTFStorage is ERC1155Storage {
     mapping(bytes32 => uint256[]) internal _payoutNumerators;
     mapping(bytes32 => uint256) internal _payoutDenominator;
 }
 
-contract CTFAdapter is IConditionalTokens, GnosisCTF {
+contract GnosisCTFAdapter is IConditionalTokens, Ownable, GnosisCTFStorage {
     address public immutable IMPLEMENTATION;
 
-    constructor(address _implementation) {
+    constructor(address _implementation) Ownable(msg.sender) {
         IMPLEMENTATION = _implementation;
     }
 
@@ -31,11 +32,15 @@ contract CTFAdapter is IConditionalTokens, GnosisCTF {
     /* @dev: IERC1155 functions */
 
     function balanceOf(address owner, uint256 id) public view returns (uint256) {
+        // return IConditionalTokens(IMPLEMENTATION).balanceOf(owner, id);
+
         require(owner != address(0), "ERC1155: balance query for the zero address");
         return _balances[id][owner];
     }
 
     function balanceOfBatch(address[] memory owners, uint256[] memory ids) public view returns (uint256[] memory) {
+        // return IConditionalTokens(IMPLEMENTATION).balanceOfBatch(owners, ids);
+
         require(owners.length == ids.length, "ERC1155: owners and IDs must have same lengths");
 
         uint256[] memory batchBalances = new uint256[](owners.length);
@@ -53,6 +58,8 @@ contract CTFAdapter is IConditionalTokens, GnosisCTF {
     }
 
     function isApprovedForAll(address owner, address operator) external view returns (bool) {
+        // return IConditionalTokens(IMPLEMENTATION).isApprovedForAll(owner, operator);
+
         return _operatorApprovals[owner][operator];
     }
 
@@ -67,18 +74,22 @@ contract CTFAdapter is IConditionalTokens, GnosisCTF {
     /* @dev: ConditionalTokensFramework functions */
 
     function payoutNumerators(bytes32 conditionId, uint256 index) external view returns (uint256) {
+        // return IConditionalTokens(IMPLEMENTATION).payoutNumerators(conditionId, index);
+
         return _payoutNumerators[conditionId][index];
     }
 
     function payoutDenominator(bytes32 conditionId) external view returns (uint256) {
+        // return IConditionalTokens(IMPLEMENTATION).payoutDenominator(conditionId);
+
         return _payoutDenominator[conditionId];
     }
 
-    function prepareCondition(address, bytes32, uint256) external virtual {
+    function prepareCondition(address, bytes32, uint256) external {
         _delegate();
     }
 
-    function reportPayouts(bytes32, uint256[] calldata) external virtual {
+    function reportPayouts(bytes32, uint256[] calldata) external {
         _delegate();
     }
 
@@ -86,15 +97,18 @@ contract CTFAdapter is IConditionalTokens, GnosisCTF {
         _delegate();
     }
 
-    function mergePositions(IERC20, bytes32, bytes32, uint256[] calldata, uint256) external virtual {
+    function mergePositions(IERC20, bytes32, bytes32, uint256[] calldata, uint256) external {
         _delegate();
     }
 
-    function redeemPositions(IERC20, bytes32, bytes32, uint256[] calldata) external {
+    // NOTE: the only diff is `onlyOwner()` modifier.
+    function redeemPositions(IERC20, bytes32, bytes32, uint256[] calldata) external onlyOwner {
         _delegate();
     }
 
     function getOutcomeSlotCount(bytes32 conditionId) external view returns (uint256) {
+        // return IConditionalTokens(IMPLEMENTATION).getOutcomeSlotCount(conditionId);
+
         return _payoutNumerators[conditionId].length;
     }
 
@@ -103,6 +117,8 @@ contract CTFAdapter is IConditionalTokens, GnosisCTF {
         pure
         returns (bytes32)
     {
+        // return IConditionalTokens(IMPLEMENTATION).getConditionId(oracle, questionId, outcomeSlotCount);
+
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encodePacked(oracle, questionId, outcomeSlotCount));
     }
@@ -116,6 +132,8 @@ contract CTFAdapter is IConditionalTokens, GnosisCTF {
     }
 
     function getPositionId(IERC20 collateralToken, bytes32 collectionId) external pure returns (uint256) {
+        // return IConditionalTokens(IMPLEMENTATION).getPositionId(collateralToken, conditionId);
+
         return uint256(keccak256(abi.encodePacked(collateralToken, collectionId)));
     }
 

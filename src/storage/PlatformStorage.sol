@@ -42,6 +42,5 @@ struct PlatformStorage {
     // --- Shares accounting (per user per book) ---
     // Tracks free and reserved shares for each user in each order book
     mapping(UserId => mapping(BookKey => SharesBalance)) sharesBalances;
-
     // (Append new storage below this line in future iterations.)
 }
