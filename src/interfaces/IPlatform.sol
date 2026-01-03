@@ -115,6 +115,25 @@ interface IPlatform {
     /// @notice Emitted after fee exemption state changes.
     event FeeExemptionUpdated(address indexed account, bool isExempt);
 
+    // ==================== Balance Views ====================
+
+    /// @notice Get the Points balance for a user.
+    /// @param user The address of the user.
+    /// @return free Available Points.
+    /// @return reserved Locked Points.
+    function getPointsBalance(address user) external view returns (uint128 free, uint128 reserved);
+
+    /// @notice Get the Shares balance for a user in a specific market outcome.
+    /// @param marketId The market ID.
+    /// @param outcomeId The outcome ID.
+    /// @param user The address of the user.
+    /// @return free Available Shares.
+    /// @return reserved Locked Shares.
+    function getSharesBalance(uint64 marketId, uint8 outcomeId, address user)
+        external
+        view
+        returns (uint128 free, uint128 reserved);
+
     // ==================== User Registry ====================
 
     /// @notice Get the userId for a given address, or 0 if not registered.

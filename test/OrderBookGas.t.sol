@@ -19,15 +19,19 @@ contract OrderBookGasTest is Test {
 
     function setUp() public {
         platform = new Platform();
+        _setupUsers();
+    }
 
-        vm.prank(alice);
-        platform.register();
-        vm.prank(bob);
-        platform.register();
-        vm.prank(carol);
-        platform.register();
-        vm.prank(dave);
-        platform.register();
+    function _setupUsers() internal {
+        address[4] memory users = [alice, bob, carol, dave];
+        for (uint256 i = 0; i < 4; i++) {
+            address u = users[i];
+            vm.startPrank(u);
+            platform.register();
+            platform.deposit(1_000_000_000);
+            platform.depositShares(MARKET, OUTCOME, 1_000_000_000);
+            vm.stopPrank();
+        }
     }
 
     // -------------------------
@@ -210,14 +214,7 @@ contract OrderBookGasTest is Test {
 
         // Re-seed
         platform = new Platform();
-        vm.prank(alice);
-        platform.register();
-        vm.prank(bob);
-        platform.register();
-        vm.prank(carol);
-        platform.register();
-        vm.prank(dave);
-        platform.register();
+        _setupUsers();
         ids = _seedAsksAtTick(10, 60, 10);
         target = ids[40];
 
@@ -230,14 +227,7 @@ contract OrderBookGasTest is Test {
 
         // Re-seed again
         platform = new Platform();
-        vm.prank(alice);
-        platform.register();
-        vm.prank(bob);
-        platform.register();
-        vm.prank(carol);
-        platform.register();
-        vm.prank(dave);
-        platform.register();
+        _setupUsers();
         ids = _seedAsksAtTick(10, 60, 10);
         target = ids[40];
 

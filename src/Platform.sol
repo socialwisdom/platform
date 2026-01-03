@@ -17,6 +17,7 @@ import {TickLib} from "./encoding/TickLib.sol";
 import {OrderBook} from "./core/OrderBook.sol";
 import {Matching} from "./core/Matching.sol";
 import {Deposits} from "./core/Deposits.sol";
+import {Accounting} from "./core/Accounting.sol";
 
 contract Platform is IPlatform {
     // ==================== User Registry ====================
@@ -113,8 +114,15 @@ contract Platform is IPlatform {
             PlatformStorage storage s = StorageSlot.layout();
             UserId uid = _getOrRegister(s, msg.sender);
 
-            OrderId placedOrderId =
-                OrderBook.placeLimit(s, uid, BookKeyLib.pack(marketId, outcomeId, Side(side)), tick, sharesRequested);
+            BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
+            if (Side(side) == Side.Bid) {
+                uint256 requiredPoints = uint256(sharesRequested) * uint256(limitTick);
+                Accounting.reservePoints(s, uid, uint128(requiredPoints));
+            } else {
+                Accounting.reserveShares(s, uid, bookKey, sharesRequested);
+            }
+
+            OrderId placedOrderId = OrderBook.placeLimit(s, uid, bookKey, tick, sharesRequested);
 
             emit OrderPlaced(
                 marketId, outcomeId, UserId.unwrap(uid), side, OrderId.unwrap(placedOrderId), limitTick, sharesRequested
@@ -169,13 +177,40 @@ contract Platform is IPlatform {
         PlatformStorage storage s = StorageSlot.layout();
         UserId uid = _getOrRegister(s, msg.sender);
 
-        (uint128 cancelledShares,, Tick tick) = OrderBook.cancel(s, uid, bookKey, orderId_, prevCandidates);
+        Tick tick;
+        (cancelledShares,, tick) = OrderBook.cancel(s, uid, bookKey, orderId_, prevCandidates);
+
+        if (side_ == Side.Bid) {
+            uint128 reserved = uint128(uint256(cancelledShares) * uint256(Tick.unwrap(tick)));
+            Accounting.releasePoints(s, uid, reserved);
+        } else {
+            Accounting.releaseShares(s, uid, bookKey, cancelledShares);
+        }
 
         emit OrderCancelled(marketId, outcomeId, UserId.unwrap(uid), side, orderId, Tick.unwrap(tick), cancelledShares);
         return cancelledShares;
     }
 
     // ==================== Views ====================
+
+    function getPointsBalance(address user) external view returns (uint128 free, uint128 reserved) {
+        PlatformStorage storage s = StorageSlot.layout();
+        UserId uid = s.userIdOf[user];
+        if (UserId.unwrap(uid) == 0) return (0, 0);
+        return Accounting.getPointsBalance(s, uid);
+    }
+
+    function getSharesBalance(uint64 marketId, uint8 outcomeId, address user)
+        external
+        view
+        returns (uint128 free, uint128 reserved)
+    {
+        PlatformStorage storage s = StorageSlot.layout();
+        UserId uid = s.userIdOf[user];
+        if (UserId.unwrap(uid) == 0) return (0, 0);
+        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side.Ask);
+        return Accounting.getSharesBalance(s, uid, bookKey);
+    }
 
     function getCancelCandidates(uint64 marketId, uint8 outcomeId, uint8 side, uint32 targetOrderId, uint256 maxN)
         external
@@ -254,25 +289,24 @@ contract Platform is IPlatform {
         Side makerSide = BookKeyLib.opposite(takerSide);
         uint128 remaining = restingShares;
 
+        Matching.MatchContext memory ctx = Matching.MatchContext({
+            marketId: marketId,
+            outcomeId: outcomeId,
+            takerSide: takerSide,
+            limitTick: limitTick,
+            placedOrderId: placedOrderId,
+            takerUserId: takerUserId,
+            makerBookKey: makerBookKey,
+            makerSide: makerSide,
+            isTakerLimit: true
+        });
+
         while (remaining > 0) {
             Matching.FillInfo memory fill =
                 Matching.matchOneStep(s, makerBookKey, makerSide, placedOrderId, limitTick, remaining);
             if (fill.sharesFilled == 0) break;
 
-            emit Trade(
-                marketId,
-                UserId.unwrap(s.orders[Keys.orderKey(makerBookKey, fill.makerId)].ownerId),
-                UserId.unwrap(takerUserId),
-                outcomeId,
-                uint8(makerSide),
-                OrderId.unwrap(fill.makerId),
-                OrderId.unwrap(placedOrderId),
-                Tick.unwrap(fill.tick),
-                fill.sharesFilled,
-                uint128(uint256(fill.sharesFilled) * uint256(Tick.unwrap(fill.tick))),
-                0,
-                0 // TODO: fees
-            );
+            _processMatch(s, ctx, fill);
 
             totalFilled += fill.sharesFilled;
             remaining -= fill.sharesFilled;
@@ -296,30 +330,103 @@ contract Platform is IPlatform {
         BookKey makerBookKey = BookKeyLib.pack(marketId, outcomeId, makerSide);
         uint128 remaining = sharesRequested;
 
+        Matching.MatchContext memory ctx = Matching.MatchContext({
+            marketId: marketId,
+            outcomeId: outcomeId,
+            takerSide: takerSide,
+            limitTick: limitTick,
+            placedOrderId: OrderId.wrap(0),
+            takerUserId: takerUserId,
+            makerBookKey: makerBookKey,
+            makerSide: makerSide,
+            isTakerLimit: false
+        });
+
         while (remaining > 0) {
             Matching.FillInfo memory fill =
                 Matching.matchOneStep(s, makerBookKey, makerSide, OrderId.wrap(0), limitTick, remaining);
             if (fill.sharesFilled == 0) break;
 
-            Order storage makerOrder = s.orders[Keys.orderKey(makerBookKey, fill.makerId)];
-            emit Trade(
-                marketId,
-                UserId.unwrap(makerOrder.ownerId),
-                UserId.unwrap(takerUserId),
-                outcomeId,
-                uint8(makerSide),
-                OrderId.unwrap(fill.makerId),
-                0,
-                Tick.unwrap(fill.tick),
-                fill.sharesFilled,
-                uint128(uint256(fill.sharesFilled) * uint256(Tick.unwrap(fill.tick))),
-                0,
-                0 // TODO: fees
-            );
+            _processMatch(s, ctx, fill);
 
             remaining -= fill.sharesFilled;
         }
 
         return sharesRequested - remaining;
+    }
+
+    function _processMatch(
+        PlatformStorage storage s,
+        Matching.MatchContext memory ctx,
+        Matching.FillInfo memory fill
+    ) private {
+        Order storage makerOrder = s.orders[Keys.orderKey(ctx.makerBookKey, fill.makerId)];
+        UserId makerId = makerOrder.ownerId;
+
+        // Maker (Resting)
+        if (ctx.makerSide == Side.Bid) {
+            uint128 cost = uint128(uint256(fill.sharesFilled) * uint256(Tick.unwrap(fill.tick)));
+            Accounting.consumeReservedPoints(s, makerId, cost);
+            // Shares always credited to Ask side (canonical asset key)
+            BookKey sharesKey = BookKeyLib.pack(ctx.marketId, ctx.outcomeId, Side.Ask);
+            Accounting.addFreeShares(s, makerId, sharesKey, fill.sharesFilled);
+        } else {
+            Accounting.consumeReservedShares(s, makerId, ctx.makerBookKey, fill.sharesFilled);
+            uint128 proceeds = uint128(uint256(fill.sharesFilled) * uint256(Tick.unwrap(fill.tick)));
+            Accounting.addFreePoints(s, makerId, proceeds);
+        }
+
+        // Taker
+        if (ctx.isTakerLimit) {
+            // Limit Order Logic
+            if (ctx.takerSide == Side.Bid) {
+                uint128 cost = uint128(uint256(fill.sharesFilled) * uint256(Tick.unwrap(fill.tick)));
+                uint128 reserved = uint128(uint256(fill.sharesFilled) * uint256(Tick.unwrap(ctx.limitTick)));
+
+                Accounting.consumeReservedPoints(s, ctx.takerUserId, cost);
+                if (reserved > cost) {
+                    Accounting.releasePoints(s, ctx.takerUserId, reserved - cost);
+                }
+                // Shares always credited to Ask side (canonical asset key)
+                BookKey sharesKey = BookKeyLib.pack(ctx.marketId, ctx.outcomeId, Side.Ask);
+                Accounting.addFreeShares(s, ctx.takerUserId, sharesKey, fill.sharesFilled);
+            } else {
+                BookKey takerBookKey = BookKeyLib.pack(ctx.marketId, ctx.outcomeId, ctx.takerSide);
+                Accounting.consumeReservedShares(s, ctx.takerUserId, takerBookKey, fill.sharesFilled);
+                uint128 proceeds = uint128(uint256(fill.sharesFilled) * uint256(Tick.unwrap(fill.tick)));
+                Accounting.addFreePoints(s, ctx.takerUserId, proceeds);
+            }
+        } else {
+            // Market Order Logic
+            if (ctx.takerSide == Side.Bid) {
+                uint128 cost = uint128(uint256(fill.sharesFilled) * uint256(Tick.unwrap(fill.tick)));
+                Accounting.removeFreePoints(s, ctx.takerUserId, cost);
+
+                // Shares always credited to Ask side (canonical asset key)
+                BookKey sharesKey = BookKeyLib.pack(ctx.marketId, ctx.outcomeId, Side.Ask);
+                Accounting.addFreeShares(s, ctx.takerUserId, sharesKey, fill.sharesFilled);
+            } else {
+                BookKey takerBookKey = BookKeyLib.pack(ctx.marketId, ctx.outcomeId, ctx.takerSide);
+                Accounting.removeFreeShares(s, ctx.takerUserId, takerBookKey, fill.sharesFilled);
+
+                uint128 proceeds = uint128(uint256(fill.sharesFilled) * uint256(Tick.unwrap(fill.tick)));
+                Accounting.addFreePoints(s, ctx.takerUserId, proceeds);
+            }
+        }
+
+        emit Trade(
+            ctx.marketId,
+            UserId.unwrap(makerId),
+            UserId.unwrap(ctx.takerUserId),
+            ctx.outcomeId,
+            uint8(ctx.makerSide),
+            OrderId.unwrap(fill.makerId),
+            OrderId.unwrap(ctx.placedOrderId),
+            Tick.unwrap(fill.tick),
+            fill.sharesFilled,
+            uint128(uint256(fill.sharesFilled) * uint256(Tick.unwrap(fill.tick))),
+            0,
+            0 // TODO: fees
+        );
     }
 }

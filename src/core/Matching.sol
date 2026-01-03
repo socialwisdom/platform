@@ -3,13 +3,26 @@ pragma solidity ^0.8.30;
 
 import {PlatformStorage} from "../storage/PlatformStorage.sol";
 import {Level} from "../types/Structs.sol";
-import {BookKey, Tick, OrderId} from "../types/IdTypes.sol";
+import {BookKey, Tick, OrderId, UserId} from "../types/IdTypes.sol";
 import {Side} from "../types/Enums.sol";
 import {Keys} from "../encoding/Keys.sol";
 import {Masks} from "../encoding/Masks.sol";
 import {LevelQueue} from "./LevelQueue.sol";
 
 library Matching {
+    /// @notice Context for the matching loop to avoid stack-too-deep.
+    struct MatchContext {
+        uint64 marketId;
+        uint8 outcomeId;
+        Side takerSide;
+        Tick limitTick;
+        OrderId placedOrderId;
+        UserId takerUserId;
+        BookKey makerBookKey;
+        Side makerSide;
+        bool isTakerLimit;
+    }
+
     /// @notice Info about a single fill for Trade event emission.
     struct FillInfo {
         OrderId makerId;
