@@ -111,16 +111,14 @@ library OrderBook {
         }
 
         // Case 2: non-head cancel via candidates (O(N))
-        {
-            OrderId next = ord.nextOrderId;
-            OrderId prevIdFound = _findPrevCandidate(s, bookKey, orderId, prevCandidates);
-            if (OrderId.unwrap(prevIdFound) == 0) revert PrevCandidateNotFound(orderId);
+        OrderId next = ord.nextOrderId;
+        OrderId prevIdFound = _findPrevCandidate(s, bookKey, orderId, prevCandidates);
+        if (OrderId.unwrap(prevIdFound) == 0) revert PrevCandidateNotFound(orderId);
 
-            levelEmptied = _unlinkNonHead(s, bookKey, tick, orderId, prevIdFound, next, remaining);
+        levelEmptied = _unlinkNonHead(s, bookKey, tick, orderId, prevIdFound, next, remaining);
 
-            cancelledShares = remaining;
-            return (cancelledShares, levelEmptied, tick);
-        }
+        cancelledShares = remaining;
+        return (cancelledShares, levelEmptied, tick);
     }
 
     function _findPrevCandidate(

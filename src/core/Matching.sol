@@ -3,26 +3,13 @@ pragma solidity ^0.8.30;
 
 import {PlatformStorage} from "../storage/PlatformStorage.sol";
 import {Level} from "../types/Structs.sol";
-import {BookKey, Tick, OrderId, UserId} from "../types/IdTypes.sol";
+import {BookKey, Tick, OrderId} from "../types/IdTypes.sol";
 import {Side} from "../types/Enums.sol";
 import {Keys} from "../encoding/Keys.sol";
 import {Masks} from "../encoding/Masks.sol";
 import {LevelQueue} from "./LevelQueue.sol";
 
 library Matching {
-    /// @notice Context for the matching loop to avoid stack-too-deep.
-    struct MatchContext {
-        uint64 marketId;
-        uint8 outcomeId;
-        Side takerSide;
-        Tick limitTick;
-        OrderId placedOrderId;
-        UserId takerUserId;
-        BookKey makerBookKey;
-        Side makerSide;
-        bool isTakerLimit;
-    }
-
     /// @notice Info about a single fill for Trade event emission.
     struct FillInfo {
         OrderId makerId;
@@ -50,15 +37,15 @@ library Matching {
         if (mask == 0) return info;
 
         Tick tick = makerSide == Side.Bid ? Masks.bestBid(mask) : Masks.bestAsk(mask);
-        if (!_checkPrice(makerSide, tick, limitTick)) return info;
+
+        // Check price: for Bid maker, tick >= limitTick; for Ask maker, tick <= limitTick
+        if (makerSide == Side.Bid
+                ? Tick.unwrap(tick) < Tick.unwrap(limitTick)
+                : Tick.unwrap(tick) > Tick.unwrap(limitTick)) {
+            return info;
+        }
 
         return _fillLevel(s, makerBookKey, makerSide, tick, takerOrderId, remainingToFill, mask);
-    }
-
-    function _checkPrice(Side makerSide, Tick tick, Tick limitTick) private pure returns (bool) {
-        uint8 tickValue = Tick.unwrap(tick);
-        uint8 limitValue = Tick.unwrap(limitTick);
-        return makerSide == Side.Bid ? tickValue >= limitValue : tickValue <= limitValue;
     }
 
     function _fillLevel(
@@ -73,7 +60,9 @@ library Matching {
         Level storage level = s.levels[Keys.levelKey(makerBookKey, tick)];
         uint32 headOrderIdRaw = level.headOrderId;
         if (headOrderIdRaw == 0) {
-            _clearMask(s, makerBookKey, makerSide, tick, mask);
+            uint128 clearedMask = Masks.clear(mask, tick);
+            if (makerSide == Side.Bid) s.books[makerBookKey].bidsMask = clearedMask;
+            else s.books[makerBookKey].asksMask = clearedMask;
             return info;
         }
 
@@ -81,7 +70,11 @@ library Matching {
         uint128 headRemaining = s.orders[Keys.orderKey(makerBookKey, headOrderId)].sharesRemaining;
         if (headRemaining == 0) {
             (, bool levelEmptied) = LevelQueue.popHeadIfFilled(s, makerBookKey, tick);
-            if (levelEmptied) _clearMask(s, makerBookKey, makerSide, tick, mask);
+            if (levelEmptied) {
+                uint128 clearedMask = Masks.clear(mask, tick);
+                if (makerSide == Side.Bid) s.books[makerBookKey].bidsMask = clearedMask;
+                else s.books[makerBookKey].asksMask = clearedMask;
+            }
             return info;
         }
 
@@ -91,7 +84,11 @@ library Matching {
 
         if (headRemaining == filled) {
             (, bool levelEmptied) = LevelQueue.popHeadIfFilled(s, makerBookKey, tick);
-            if (levelEmptied) _clearMask(s, makerBookKey, makerSide, tick, mask);
+            if (levelEmptied) {
+                uint128 clearedMask = Masks.clear(mask, tick);
+                if (makerSide == Side.Bid) s.books[makerBookKey].bidsMask = clearedMask;
+                else s.books[makerBookKey].asksMask = clearedMask;
+            }
             info.levelEmptied = true;
         }
 
@@ -100,13 +97,5 @@ library Matching {
         info.sharesFilled = filled;
         info.tick = tick;
         return info;
-    }
-
-    function _clearMask(PlatformStorage storage s, BookKey makerBookKey, Side makerSide, Tick tick, uint128 mask)
-        private
-    {
-        uint128 clearedMask = Masks.clear(mask, tick);
-        if (makerSide == Side.Bid) s.books[makerBookKey].bidsMask = clearedMask;
-        else s.books[makerBookKey].asksMask = clearedMask;
     }
 }
