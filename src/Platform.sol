@@ -117,6 +117,8 @@ contract Platform is IPlatform {
             BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
             if (Side(side) == Side.Bid) {
                 uint256 requiredPoints = uint256(sharesRequested) * uint256(limitTick);
+                // casting to 'uint128' is safe because 'requiredPoints' is guaranteed to be less than or equal to 2^128 - 1.
+                // forge-lint: disable-next-line(unsafe-typecast)
                 Accounting.reservePoints(s, uid, uint128(requiredPoints));
             } else {
                 Accounting.reserveShares(s, uid, bookKey, sharesRequested);
@@ -355,11 +357,9 @@ contract Platform is IPlatform {
         return sharesRequested - remaining;
     }
 
-    function _processMatch(
-        PlatformStorage storage s,
-        Matching.MatchContext memory ctx,
-        Matching.FillInfo memory fill
-    ) private {
+    function _processMatch(PlatformStorage storage s, Matching.MatchContext memory ctx, Matching.FillInfo memory fill)
+        private
+    {
         Order storage makerOrder = s.orders[Keys.orderKey(ctx.makerBookKey, fill.makerId)];
         UserId makerId = makerOrder.ownerId;
 

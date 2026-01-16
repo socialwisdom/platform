@@ -99,7 +99,7 @@ contract AccountingTest is Test {
         assertEq(aResPts, 0, "Alice reserved points consumed");
 
         // Alice bought shares. She should have them in her free balance.
-        (uint128 aFreeSh, ) = platform.getSharesBalance(MARKET, OUTCOME, alice);
+        (uint128 aFreeSh,) = platform.getSharesBalance(MARKET, OUTCOME, alice);
         // Alice started with 1M shares. She bought 100 more.
         assertEq(aFreeSh, 1_000_000 + 100, "Alice should receive shares");
 
@@ -136,7 +136,7 @@ contract AccountingTest is Test {
         // Check Bob (Taker Bid)
         // Consumed 5000 reserved points. Gained 100 shares.
         (uint128 bFreePts, uint128 bResPts) = platform.getPointsBalance(bob);
-        (uint128 bFreeSh, ) = platform.getSharesBalance(MARKET, OUTCOME, bob);
+        (uint128 bFreeSh,) = platform.getSharesBalance(MARKET, OUTCOME, bob);
 
         assertEq(bFreePts, 1_000_000 - 5000, "Bob points consumed");
         assertEq(bResPts, 0);
@@ -153,7 +153,7 @@ contract AccountingTest is Test {
         platform.take(MARKET, OUTCOME, uint8(Side.Ask), 50, 100, 100);
 
         // Check Alice (Maker Bid)
-        (uint128 aFreePts, ) = platform.getPointsBalance(alice);
+        (uint128 aFreePts,) = platform.getPointsBalance(alice);
         assertEq(aFreePts, 1_000_000 - 5000);
 
         // Check Bob (Taker Market Ask)
@@ -177,13 +177,13 @@ contract AccountingTest is Test {
         platform.take(MARKET, OUTCOME, uint8(Side.Bid), 50, 100, 100);
 
         // Check Alice (Maker Ask)
-        (uint128 aFreeSh, ) = platform.getSharesBalance(MARKET, OUTCOME, alice);
+        (uint128 aFreeSh,) = platform.getSharesBalance(MARKET, OUTCOME, alice);
         assertEq(aFreeSh, 1_000_000 - 100);
 
         // Check Bob (Taker Market Bid)
         // Should use FREE points directly. Gain FREE shares.
         (uint128 bFreePts, uint128 bResPts) = platform.getPointsBalance(bob);
-        (uint128 bFreeSh, ) = platform.getSharesBalance(MARKET, OUTCOME, bob);
+        (uint128 bFreeSh,) = platform.getSharesBalance(MARKET, OUTCOME, bob);
 
         assertEq(bFreePts, 1_000_000 - 5000, "Bob free points decreased");
         assertEq(bResPts, 0);
@@ -200,11 +200,11 @@ contract AccountingTest is Test {
         platform.placeLimit(MARKET, OUTCOME, uint8(Side.Ask), 50, 100);
 
         // Alice (Maker Bid @ 60): Pays 6000.
-        (uint128 aFreePts, ) = platform.getPointsBalance(alice);
+        (uint128 aFreePts,) = platform.getPointsBalance(alice);
         assertEq(aFreePts, 1_000_000 - 6000);
 
         // Bob (Taker Ask @ 50): Sells at 60. Gains 6000.
-        (uint128 bFreePts, ) = platform.getPointsBalance(bob);
+        (uint128 bFreePts,) = platform.getPointsBalance(bob);
         assertEq(bFreePts, 1_000_000 + 6000);
     }
 
@@ -218,7 +218,7 @@ contract AccountingTest is Test {
         platform.placeLimit(MARKET, OUTCOME, uint8(Side.Bid), 50, 100);
 
         // Alice (Maker Ask @ 40): Sells at 40. Gains 4000.
-        (uint128 aFreePts, ) = platform.getPointsBalance(alice);
+        (uint128 aFreePts,) = platform.getPointsBalance(alice);
         assertEq(aFreePts, 1_000_000 + 4000);
 
         // Bob (Taker Bid @ 50): Buys at 40. Pays 4000.
