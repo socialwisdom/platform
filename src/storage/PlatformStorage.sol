@@ -2,14 +2,10 @@
 pragma solidity ^0.8.30;
 
 import {UserId, BookKey} from "../types/IdTypes.sol";
-import {BookState, Level, Order, PointsBalance, SharesBalance} from "../types/Structs.sol";
+import {BookState, Level, Order, PointsBalance, SharesBalance, Market} from "../types/Structs.sol";
 
-/// @notice Canonical storage layout (orderbook-only phase).
+/// @notice Canonical storage layout (append-only).
 /// Append-only: when adding new subsystems later, ONLY append new fields/sections.
-///
-/// CORE INTENT:
-/// - This storage is intentionally minimal to benchmark the on-chain LOB gas cost.
-/// - No Points/Shares/Markets here yet.
 ///
 /// GLOBAL INVARIANTS (high-level):
 /// - books[bookKey].nextOrderId is monotonically increasing per book (start at 1; 0 reserved as "null").
@@ -42,5 +38,12 @@ struct PlatformStorage {
     // --- Shares accounting (per user per book) ---
     // Tracks free and reserved shares for each user in each order book
     mapping(UserId => mapping(BookKey => SharesBalance)) sharesBalances;
+
+    // --- Ownership / roles ---
+    address owner; // MarketCreator default = owner
+
+    // --- Markets ---
+    uint64 nextMarketId; // starts at 1
+    mapping(uint64 => Market) markets;
     // (Append new storage below this line in future iterations.)
 }

@@ -106,3 +106,29 @@ struct Order {
     // SLOT 1 (COLD)
     uint128 requestedShares;
 }
+
+/// @notice Market definition and lifecycle flags.
+/// STORAGE PACKING: not optimized yet; kept minimal and append-only once used.
+///
+/// NOTE: feeParams is a placeholder for per-market fee configuration.
+/// The exact encoding is undefined in protocol docs and needs clarification.
+struct Market {
+    uint64 creatorId;
+    uint64 resolverId;
+    uint8 outcomesCount;
+    uint64 expirationAt; // 0 means "no expiration"
+    bool allowEarlyResolve;
+
+    // Placeholder for per-market fee parameters (needs clarification)
+    bytes32 feeParams;
+
+    // Metadata anchors
+    bytes32 questionHash;
+    bytes32 outcomesHash;
+
+    // Resolution flags
+    bool resolved; // true once pending outcome is set
+    bool finalized; // true once outcome is final
+    uint8 winningOutcomeId; // valid only when resolved == true
+    uint64 resolvedAt; // timestamp of last resolve (pending)
+}

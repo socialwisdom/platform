@@ -7,3 +7,10 @@ enum Side {
     Ask,
     Bid
 }
+
+enum MarketState {
+    Active,
+    Expired,
+    ResolvedPending,
+    ResolvedFinal
+}

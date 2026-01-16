@@ -5,10 +5,19 @@ import {IPlatform} from "./interfaces/IPlatform.sol";
 
 import {PlatformStorage} from "./storage/PlatformStorage.sol";
 import {StorageSlot} from "./storage/StorageSlot.sol";
-import {Order, Level} from "./types/Structs.sol";
+import {Order, Level, Market} from "./types/Structs.sol";
 import {UserId, BookKey, Tick, OrderId} from "./types/IdTypes.sol";
-import {Side} from "./types/Enums.sol";
-import {MinFillNotMet, TooManyCancelCandidates, UnregisteredUser, InvalidInput} from "./types/Errors.sol";
+import {Side, MarketState} from "./types/Enums.sol";
+import {
+    MinFillNotMet,
+    TooManyCancelCandidates,
+    UnregisteredUser,
+    InvalidInput,
+    Unauthorized,
+    MarketNotFound,
+    InvalidOutcomeId,
+    MarketNotActive
+} from "./types/Errors.sol";
 
 import {BookKeyLib} from "./encoding/BookKeyLib.sol";
 import {Keys} from "./encoding/Keys.sol";
@@ -18,8 +27,18 @@ import {OrderBook} from "./core/OrderBook.sol";
 import {Matching} from "./core/Matching.sol";
 import {Deposits} from "./core/Deposits.sol";
 import {Accounting} from "./core/Accounting.sol";
+import {Markets} from "./core/Markets.sol";
 
 contract Platform is IPlatform {
+    uint64 public constant RESOLVE_FINALIZE_DELAY = 1 hours;
+
+    constructor() {
+        PlatformStorage storage s = StorageSlot.layout();
+        if (s.owner == address(0)) {
+            s.owner = msg.sender;
+        }
+    }
+
     // ==================== User Registry ====================
 
     function userIdOf(address user) external view returns (uint64) {
@@ -110,6 +129,7 @@ contract Platform is IPlatform {
         TickLib.check(Tick.wrap(limitTick));
 
         PlatformStorage storage s = StorageSlot.layout();
+        _requireActiveMarket(s, marketId, outcomeId);
         UserId uid = _getOrRegister(s, msg.sender);
 
         BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
@@ -154,6 +174,7 @@ contract Platform is IPlatform {
         TickLib.check(Tick.wrap(limitTick));
 
         PlatformStorage storage s = StorageSlot.layout();
+        _requireActiveMarket(s, marketId, outcomeId);
         UserId uid = _getOrRegister(s, msg.sender);
 
         // Reserve principal upfront (market orders never rest).
@@ -195,10 +216,11 @@ contract Platform is IPlatform {
         if (prevCandidates.length > 16) revert TooManyCancelCandidates();
         if (side > 1) revert InvalidInput();
 
-        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
-
         PlatformStorage storage s = StorageSlot.layout();
+        _requireMarketExistsAndOutcome(s, marketId, outcomeId);
         UserId uid = _getOrRegister(s, msg.sender);
+
+        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
 
         Tick tick;
         (cancelledShares,, tick) = OrderBook.cancel(s, uid, bookKey, OrderId.wrap(orderId), prevCandidates);
@@ -215,6 +237,120 @@ contract Platform is IPlatform {
 
         emit OrderCancelled(marketId, outcomeId, UserId.unwrap(uid), side, orderId, Tick.unwrap(tick), cancelledShares);
         return cancelledShares;
+    }
+
+    // ==================== Market APIs ====================
+
+    function createMarket(
+        address resolver,
+        uint8 outcomesCount,
+        uint64 expirationAt,
+        bool allowEarlyResolve,
+        bytes32 feeParams,
+        bytes32 questionHash,
+        bytes32 outcomesHash,
+        string calldata question,
+        string[] calldata outcomeLabels,
+        string calldata resolutionRules
+    ) external returns (uint64 marketId) {
+        PlatformStorage storage s = StorageSlot.layout();
+        _onlyOwner(s);
+
+        UserId creatorId = _getOrRegister(s, msg.sender);
+        UserId resolverId = _getOrRegister(s, resolver);
+
+        marketId = Markets.createMarket(
+            s,
+            creatorId,
+            resolverId,
+            outcomesCount,
+            expirationAt,
+            allowEarlyResolve,
+            feeParams,
+            questionHash,
+            outcomesHash
+        );
+
+        emit MarketCreated(
+            marketId,
+            UserId.unwrap(creatorId),
+            UserId.unwrap(resolverId),
+            expirationAt,
+            allowEarlyResolve,
+            questionHash,
+            outcomesHash,
+            question,
+            outcomeLabels,
+            resolutionRules
+        );
+    }
+
+    function resolveMarket(uint64 marketId, uint8 winningOutcomeId) external {
+        PlatformStorage storage s = StorageSlot.layout();
+        _requireMarketExistsAndOutcome(s, marketId, winningOutcomeId);
+
+        Market storage m = s.markets[marketId];
+        _onlyResolver(s, m);
+
+        Markets.resolveMarket(s, marketId, winningOutcomeId);
+        emit MarketResolved(marketId, winningOutcomeId, uint64(block.timestamp));
+    }
+
+    function finalizeMarket(uint64 marketId) external {
+        PlatformStorage storage s = StorageSlot.layout();
+        _requireMarketExists(s, marketId);
+
+        Market storage m = s.markets[marketId];
+        _onlyResolver(s, m);
+
+        Markets.finalizeMarket(s, marketId, RESOLVE_FINALIZE_DELAY);
+        emit MarketFinalized(marketId, uint64(block.timestamp));
+    }
+
+    // ==================== Market Views ====================
+
+    function getMarket(uint64 marketId)
+        external
+        view
+        returns (
+            uint64 creatorId,
+            uint64 resolverId,
+            uint8 outcomesCount,
+            uint64 expirationAt,
+            bool allowEarlyResolve,
+            bytes32 feeParams,
+            bytes32 questionHash,
+            bytes32 outcomesHash,
+            bool resolved,
+            bool finalized,
+            uint8 winningOutcomeId
+        )
+    {
+        PlatformStorage storage s = StorageSlot.layout();
+        _requireMarketExists(s, marketId);
+
+        Market storage m = s.markets[marketId];
+        return (
+            m.creatorId,
+            m.resolverId,
+            m.outcomesCount,
+            m.expirationAt,
+            m.allowEarlyResolve,
+            m.feeParams,
+            m.questionHash,
+            m.outcomesHash,
+            m.resolved,
+            m.finalized,
+            m.winningOutcomeId
+        );
+    }
+
+    function getMarketState(uint64 marketId) external view returns (uint8) {
+        PlatformStorage storage s = StorageSlot.layout();
+        _requireMarketExists(s, marketId);
+
+        Market storage m = s.markets[marketId];
+        return uint8(Markets.deriveState(m));
     }
 
     function getPointsBalance(address user) external view returns (uint128 free, uint128 reserved) {
@@ -337,6 +473,33 @@ contract Platform is IPlatform {
         s.nextUserId = UserId.wrap(UserId.unwrap(uid) + 1);
 
         emit UserRegistered(user, UserId.unwrap(uid));
+    }
+
+    function _onlyOwner(PlatformStorage storage s) internal view {
+        if (s.owner != msg.sender) revert Unauthorized();
+    }
+
+    function _onlyResolver(PlatformStorage storage s, Market storage m) internal view {
+        UserId uid = s.userIdOf[msg.sender];
+        if (UserId.unwrap(uid) == 0 || m.resolverId != UserId.unwrap(uid)) {
+            revert Unauthorized();
+        }
+    }
+
+    function _requireMarketExists(PlatformStorage storage s, uint64 marketId) internal view {
+        if (!Markets.exists(s, marketId)) revert MarketNotFound(marketId);
+    }
+
+    function _requireMarketExistsAndOutcome(PlatformStorage storage s, uint64 marketId, uint8 outcomeId) internal view {
+        _requireMarketExists(s, marketId);
+        Market storage m = s.markets[marketId];
+        if (outcomeId >= m.outcomesCount) revert InvalidOutcomeId(outcomeId, m.outcomesCount);
+    }
+
+    function _requireActiveMarket(PlatformStorage storage s, uint64 marketId, uint8 outcomeId) internal view {
+        _requireMarketExistsAndOutcome(s, marketId, outcomeId);
+        Market storage m = s.markets[marketId];
+        if (Markets.deriveState(m) != MarketState.Active) revert MarketNotActive(marketId);
     }
 
     function _matchOrder(

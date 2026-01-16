@@ -19,7 +19,17 @@ contract OrderBookGasTest is Test {
 
     function setUp() public {
         platform = new Platform();
+        _initMarket();
         _setupUsers();
+    }
+
+    function _initMarket() internal {
+        string[] memory labels = new string[](2);
+        labels[0] = "Yes";
+        labels[1] = "No";
+        platform.createMarket(
+            address(this), 2, 0, true, bytes32(0), bytes32(0), bytes32(0), "Test market", labels, "Test rules"
+        );
     }
 
     function _setupUsers() internal {
@@ -214,6 +224,7 @@ contract OrderBookGasTest is Test {
 
         // Re-seed
         platform = new Platform();
+        _initMarket();
         _setupUsers();
         ids = _seedAsksAtTick(10, 60, 10);
         target = ids[40];
@@ -227,6 +238,7 @@ contract OrderBookGasTest is Test {
 
         // Re-seed again
         platform = new Platform();
+        _initMarket();
         _setupUsers();
         ids = _seedAsksAtTick(10, 60, 10);
         target = ids[40];

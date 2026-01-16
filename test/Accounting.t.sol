@@ -17,6 +17,13 @@ contract AccountingTest is Test {
     function setUp() public {
         platform = new Platform();
 
+        string[] memory labels = new string[](2);
+        labels[0] = "Yes";
+        labels[1] = "No";
+        platform.createMarket(
+            address(this), 2, 0, true, bytes32(0), bytes32(0), bytes32(0), "Test market", labels, "Test rules"
+        );
+
         // Setup Alice
         vm.startPrank(alice);
         platform.register();

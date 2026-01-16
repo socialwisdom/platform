@@ -115,6 +115,63 @@ interface IPlatform {
     /// @notice Emitted after fee exemption state changes.
     event FeeExemptionUpdated(address indexed account, bool isExempt);
 
+    // ==================== Market APIs ====================
+
+    /// @notice Create a new market.
+    /// @param resolver Resolver address for the market.
+    /// @param outcomesCount Number of outcomes in the market.
+    /// @param expirationAt Timestamp when trading expires (0 = no expiration).
+    /// @param allowEarlyResolve Whether resolver can resolve before expiration.
+    /// @param feeParams Placeholder for per-market fee configuration (needs clarification).
+    /// @param questionHash Hash of question metadata.
+    /// @param outcomesHash Hash of outcomes metadata.
+    /// @param question Human-readable question (event only).
+    /// @param outcomeLabels Human-readable outcome labels (event only).
+    /// @param resolutionRules Human-readable resolution rules (event only).
+    /// @return marketId The newly created market id.
+    function createMarket(
+        address resolver,
+        uint8 outcomesCount,
+        uint64 expirationAt,
+        bool allowEarlyResolve,
+        bytes32 feeParams,
+        bytes32 questionHash,
+        bytes32 outcomesHash,
+        string calldata question,
+        string[] calldata outcomeLabels,
+        string calldata resolutionRules
+    ) external returns (uint64 marketId);
+
+    /// @notice Resolver selects or updates pending outcome.
+    function resolveMarket(uint64 marketId, uint8 winningOutcomeId) external;
+
+    /// @notice Resolver finalizes pending outcome.
+    function finalizeMarket(uint64 marketId) external;
+
+    // ==================== Market Views ====================
+
+    /// @notice Get market configuration and resolution flags.
+    function getMarket(uint64 marketId)
+        external
+        view
+        returns (
+            uint64 creatorId,
+            uint64 resolverId,
+            uint8 outcomesCount,
+            uint64 expirationAt,
+            bool allowEarlyResolve,
+            bytes32 feeParams,
+            bytes32 questionHash,
+            bytes32 outcomesHash,
+            bool resolved,
+            bool finalized,
+            uint8 winningOutcomeId
+        );
+
+    /// @notice Get derived market state as uint8.
+    /// Values: 0=Active, 1=Expired, 2=ResolvedPending, 3=ResolvedFinal.
+    function getMarketState(uint64 marketId) external view returns (uint8);
+
     // ==================== Balance Views ====================
 
     /// @notice Get the Points balance for a user.

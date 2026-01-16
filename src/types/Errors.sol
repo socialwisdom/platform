@@ -37,3 +37,12 @@ error InvalidSide(Side side);
 
 // Feature / state errors (used by gating)
 error FeatureDisabled(uint256 featureFlag);
+
+// Market / lifecycle errors
+error MarketNotFound(uint64 marketId);
+error InvalidOutcomeId(uint8 outcomeId, uint8 outcomesCount);
+error MarketNotActive(uint64 marketId);
+error MarketNotResolved(uint64 marketId);
+error MarketAlreadyFinalized(uint64 marketId);
+error MarketResolveTooEarly(uint64 marketId, uint64 expirationAt);
+error MarketFinalizeTooEarly(uint64 marketId, uint64 earliestFinalizeAt);
