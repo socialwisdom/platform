@@ -190,13 +190,18 @@ Per `(bookKey, tick)`:
 #### Orders
 Orders are stored by `(bookKey, orderId)` and form FIFO linked lists per price level.
 
-Each order stores fields **in this exact order** (packing-sensitive):
-1. `ownerId`
-2. `side`
-3. `tick`
-4. `nextOrderId`
-5. `sharesRemaining` (mutable)
-6. `requestedShares` (immutable)
+**Storage layout** (packing-sensitive, do not reorder):
+
+SLOT 0 (HOT — updated on every fill):
+- `sharesRemaining` (uint128) — mutable, decremented on fills
+- `ownerId` (uint64 / UserId) — order owner
+- `nextOrderId` (uint32 / OrderId) — FIFO linked list pointer
+- `tick` (uint8 / Tick) — price level [1..99]
+
+SLOT 1 (COLD — immutable):
+- `requestedShares` (uint128) — original order size (for indexing/views)
+
+**Note:** `side` is **not stored** in Order; it is derivable from the `BookKey` used to address the order. This avoids redundancy and saves gas.
 
 ### 2.7 Fees and Incentives Storage
 
@@ -443,8 +448,11 @@ Level considered empty if `totalShares == 0` and its mask bit must be unset.
 
 Orders are FIFO within a level, stored as singly linked lists via `nextOrderId`.
 
-Field order is packing-sensitive and fixed:
-`ownerId, side, tick, nextOrderId, sharesRemaining, requestedShares`.
+**Storage packing** (see §2.6 for details):
+- SLOT 0 (hot): `sharesRemaining`, `ownerId`, `nextOrderId`, `tick`
+- SLOT 1 (cold): `requestedShares`
+
+**Side derivation:** `side` is not stored in Order; it is encoded in the `BookKey` and derivable from context.
 
 ### 6.6 Cancellation (Bounded Predecessor Hints)
 
