@@ -181,12 +181,12 @@ interface IPlatform {
     /// @param side Whether this is a bid (buy outcome) or ask (sell outcome).
     /// @param limitTick The price level for this order [1..99].
     /// @param sharesRequested The number of shares requested.
-    /// @return orderIdOr0 The orderId if the order rests, or 0 if fully filled immediately.
+    /// @return orderId The allocated orderId (even if fully filled immediately).
     /// @return filledShares Shares filled immediately by this limit order.
     /// @return pointsTraded Points exchanged in this order.
     function placeLimit(uint64 marketId, uint8 outcomeId, uint8 side, uint8 limitTick, uint128 sharesRequested)
         external
-        returns (uint32 orderIdOr0, uint128 filledShares, uint256 pointsTraded);
+        returns (uint32 orderId, uint128 filledShares, uint256 pointsTraded);
 
     /// @notice Execute a market order against existing liquidity; never rests and does not allocate orderId.
     /// @param marketId The market this trade is for.
@@ -244,4 +244,40 @@ interface IPlatform {
         external
         view
         returns (uint128 remaining, uint128 requested);
+
+    /// @notice Get the active tick mask for a given book.
+    /// Used for best-price selection and off-chain book reconstruction.
+    /// @param marketId The market.
+    /// @param outcomeId The outcome index.
+    /// @param side The book side.
+    /// @return mask A 128-bit mask where bit(tick-1)=1 iff the level is non-empty.
+    function getBookMask(uint64 marketId, uint8 outcomeId, uint8 side) external view returns (uint128 mask);
+
+    /// @notice Get level metadata for a (book, tick).
+    /// @param marketId The market.
+    /// @param outcomeId The outcome index.
+    /// @param side The book side.
+    /// @param tick The price level.
+    /// @return headOrderId First order at this level (0 if empty).
+    /// @return tailOrderId Last order at this level (0 if empty).
+    /// @return totalShares Sum of sharesRemaining across all orders at this level.
+    function getLevel(uint64 marketId, uint8 outcomeId, uint8 side, uint8 tick)
+        external
+        view
+        returns (uint32 headOrderId, uint32 tailOrderId, uint128 totalShares);
+
+    /// @notice Get a full order node for traversal and indexing.
+    /// @param marketId The market.
+    /// @param outcomeId The outcome index.
+    /// @param side The book side.
+    /// @param orderId The orderId.
+    /// @return ownerId Internal userId of the order owner.
+    /// @return nextOrderId Next orderId in FIFO list (0 if tail).
+    /// @return tick Stored tick of this order.
+    /// @return sharesRemaining Remaining shares to fill.
+    /// @return requestedShares Original requested shares.
+    function getOrder(uint64 marketId, uint8 outcomeId, uint8 side, uint32 orderId)
+        external
+        view
+        returns (uint64 ownerId, uint32 nextOrderId, uint8 tick, uint128 sharesRemaining, uint128 requestedShares);
 }

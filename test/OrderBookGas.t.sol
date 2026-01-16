@@ -40,7 +40,7 @@ contract OrderBookGasTest is Test {
 
     function _place(address user, uint8 side, uint8 tick, uint128 shares)
         internal
-        returns (uint32 orderIdOr0, uint128 filled, uint256 pts)
+        returns (uint32 orderId, uint128 filled, uint256 pts)
     {
         vm.prank(user);
         return platform.placeLimit(MARKET, OUTCOME, side, tick, shares);

@@ -26,8 +26,6 @@ library OrderBook {
         Tick limitTick,
         uint128 sharesRequested
     ) internal returns (OrderId placedOrderId) {
-        uint128 remaining = sharesRequested;
-
         BookState storage book = s.books[takerBookKey];
 
         uint32 nextRaw = book.nextOrderId;
@@ -39,7 +37,7 @@ library OrderBook {
         Order storage ord = s.orders[Keys.orderKey(takerBookKey, newId)];
 
         // HOT slot
-        ord.sharesRemaining = remaining;
+        ord.sharesRemaining = sharesRequested;
         ord.ownerId = userId;
         ord.nextOrderId = OrderId.wrap(0);
         ord.tick = limitTick;
@@ -47,16 +45,25 @@ library OrderBook {
         // COLD slot (optional)
         ord.requestedShares = sharesRequested;
 
-        LevelQueue.append(s, takerBookKey, limitTick, newId, remaining);
-
-        Side side = BookKeyLib.sideOf(takerBookKey);
-        if (side == Side.Bid) {
-            book.bidsMask = Masks.set(book.bidsMask, limitTick);
-        } else {
-            book.asksMask = Masks.set(book.asksMask, limitTick);
-        }
-
         return newId;
+    }
+
+    /// @notice Appends a limit order remainder to the book.
+    /// @dev Must be called only after matching, and only if sharesRemaining > 0.
+    function restLimit(PlatformStorage storage s, BookKey bookKey, Tick tick, OrderId orderId, uint128 sharesRemaining)
+        internal
+    {
+        if (sharesRemaining == 0) return;
+
+        LevelQueue.append(s, bookKey, tick, orderId, sharesRemaining);
+
+        BookState storage book = s.books[bookKey];
+        Side side = BookKeyLib.sideOf(bookKey);
+        if (side == Side.Bid) {
+            book.bidsMask = Masks.set(book.bidsMask, tick);
+        } else {
+            book.asksMask = Masks.set(book.asksMask, tick);
+        }
     }
 
     // -----------------------------

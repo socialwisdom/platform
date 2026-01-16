@@ -175,6 +175,9 @@ Typical UX flow:
 Even if fully filled immediately:
 - an `OrderPlaced` event is still emitted.
 
+`placeLimit` always allocates and returns a new `orderId`.
+If the order is fully filled immediately, it will not rest in the book (becomes inactive), but the `orderId` remains valid for indexing.
+
 ---
 
 ### 6.2 take (Market Order)
