@@ -29,16 +29,12 @@ import {Deposits} from "./core/Deposits.sol";
 import {Accounting} from "./core/Accounting.sol";
 import {Markets} from "./core/Markets.sol";
 import {Fees} from "./core/Fees.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Platform is IPlatform {
+contract Platform is IPlatform, Ownable {
     uint64 public constant RESOLVE_FINALIZE_DELAY = 1 hours;
 
-    constructor() {
-        PlatformStorage storage s = StorageSlot.layout();
-        if (s.owner == address(0)) {
-            s.owner = msg.sender;
-        }
-    }
+    constructor() Ownable(msg.sender) {}
 
     // ==================== User Registry ====================
 
@@ -254,9 +250,8 @@ contract Platform is IPlatform {
         string calldata question,
         string[] calldata outcomeLabels,
         string calldata resolutionRules
-    ) external returns (uint64 marketId) {
+    ) external onlyOwner returns (uint64 marketId) {
         PlatformStorage storage s = StorageSlot.layout();
-        _onlyOwner(s);
 
         Fees.validateFeeBps(makerFeeBps);
         Fees.validateFeeBps(takerFeeBps);
@@ -482,9 +477,8 @@ contract Platform is IPlatform {
 
     // ==================== Admin: Fee Exemptions ====================
 
-    function setFeeExempt(address account, bool isExempt) external {
+    function setFeeExempt(address account, bool isExempt) external onlyOwner {
         PlatformStorage storage s = StorageSlot.layout();
-        _onlyOwner(s);
         UserId uid = _getOrRegister(s, account);
         s.feeExempt[uid] = isExempt;
         emit FeeExemptionUpdated(account, isExempt);
@@ -509,10 +503,6 @@ contract Platform is IPlatform {
         s.nextUserId = UserId.wrap(UserId.unwrap(uid) + 1);
 
         emit UserRegistered(user, UserId.unwrap(uid));
-    }
-
-    function _onlyOwner(PlatformStorage storage s) internal view {
-        if (s.owner != msg.sender) revert Unauthorized();
     }
 
     function _onlyResolver(PlatformStorage storage s, Market storage m) internal view {

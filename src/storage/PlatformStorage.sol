@@ -40,9 +40,6 @@ struct PlatformStorage {
     // Tracks free and reserved shares for each user in each order book
     mapping(UserId => mapping(BookKey => SharesBalance)) sharesBalances;
 
-    // --- Ownership / roles ---
-    address owner; // MarketCreator default = owner
-
     // --- Markets ---
     uint64 nextMarketId; // starts at 1
     mapping(uint64 => Market) markets;
