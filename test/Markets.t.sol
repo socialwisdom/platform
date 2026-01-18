@@ -38,7 +38,7 @@ contract MarketsTest is Test {
         labels[1] = "No";
 
         marketId = platform.createMarket(
-            marketResolver, 2, expirationAt, allowEarlyResolve, 0, 0, bytes32(0), bytes32(0), "Q", labels, "Rules"
+            marketResolver, 2, expirationAt, allowEarlyResolve, 0, 0, 0, bytes32(0), bytes32(0), "Q", labels, "Rules"
         );
     }
 
@@ -48,9 +48,10 @@ contract MarketsTest is Test {
         labels[1] = "No";
 
         vm.expectEmit(true, true, true, true);
-        emit IPlatform.MarketCreated(1, 1, 2, 0, true, bytes32(0), bytes32(0), "Q", labels, "Rules");
+        emit IPlatform.MarketCreated(1, 1, 2, 0, true, 0, bytes32(0), bytes32(0), "Q", labels, "Rules");
 
-        uint64 first = platform.createMarket(resolver, 2, 0, true, 0, 0, bytes32(0), bytes32(0), "Q", labels, "Rules");
+        uint64 first =
+            platform.createMarket(resolver, 2, 0, true, 0, 0, 0, bytes32(0), bytes32(0), "Q", labels, "Rules");
 
         uint64 second = _createMarket(resolver, 0, true);
 
@@ -191,7 +192,7 @@ contract MarketsTest is Test {
         vm.prank(resolver);
         platform.resolveMarket(marketId, 1);
 
-        (,,,,,,,,, bool resolved, bool finalized, uint8 winningOutcomeId) = platform.getMarket(marketId);
+        (,,,,,,,,,, bool resolved, bool finalized, uint8 winningOutcomeId) = platform.getMarket(marketId);
         assertTrue(resolved);
         assertFalse(finalized);
         assertEq(winningOutcomeId, 1);

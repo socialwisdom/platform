@@ -48,6 +48,9 @@ struct PlatformStorage {
     // Global dust counter (Points)
     uint128 protocolDustPoints;
 
+    // Global protocol fees counter (Points)
+    uint128 protocolFeesPoints;
+
     // --- Roles & Permissions ---
 
     // Fee exemption mapping (UserId => exempt)
@@ -55,6 +58,5 @@ struct PlatformStorage {
 
     // Market creator allowlist (UserId => allowed)
     mapping(UserId => bool) marketCreator;
-
     // (Append new storage below this line in future iterations.)
 }

@@ -31,7 +31,7 @@ contract OrderBookGasTest is Test {
         labels[0] = "Yes";
         labels[1] = "No";
         platform.createMarket(
-            address(this), 2, 0, true, 0, 0, bytes32(0), bytes32(0), "Test market", labels, "Test rules"
+            address(this), 2, 0, true, 0, 0, 0, bytes32(0), bytes32(0), "Test market", labels, "Test rules"
         );
     }
 

@@ -13,6 +13,7 @@ import {
     TooManyCancelCandidates,
     UnregisteredUser,
     InvalidInput,
+    FeeBpsTooHigh,
     Unauthorized,
     MarketNotFound,
     InvalidOutcomeId,
@@ -33,6 +34,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Platform is IPlatform, Ownable {
     uint64 public constant RESOLVE_FINALIZE_DELAY = 1 hours;
+    uint16 public constant MAX_CREATOR_FEE_BPS = 2_500; // 25%
 
     constructor() Ownable(msg.sender) {
         PlatformStorage storage s = StorageSlot.layout();
@@ -249,6 +251,7 @@ contract Platform is IPlatform, Ownable {
         bool allowEarlyResolve,
         uint16 makerFeeBps,
         uint16 takerFeeBps,
+        uint16 creatorFeeBps,
         bytes32 questionHash,
         bytes32 outcomesHash,
         string calldata question,
@@ -262,6 +265,7 @@ contract Platform is IPlatform, Ownable {
 
         Fees.validateFeeBps(makerFeeBps);
         Fees.validateFeeBps(takerFeeBps);
+        if (creatorFeeBps > MAX_CREATOR_FEE_BPS) revert FeeBpsTooHigh(creatorFeeBps, MAX_CREATOR_FEE_BPS);
         UserId resolverId = _getOrRegister(s, resolver);
 
         marketId = Markets.createMarket(
@@ -273,6 +277,7 @@ contract Platform is IPlatform, Ownable {
             allowEarlyResolve,
             makerFeeBps,
             takerFeeBps,
+            creatorFeeBps,
             questionHash,
             outcomesHash
         );
@@ -283,6 +288,7 @@ contract Platform is IPlatform, Ownable {
             UserId.unwrap(resolverId),
             expirationAt,
             allowEarlyResolve,
+            creatorFeeBps,
             questionHash,
             outcomesHash,
             question,
@@ -326,6 +332,7 @@ contract Platform is IPlatform, Ownable {
             bool allowEarlyResolve,
             uint16 makerFeeBps,
             uint16 takerFeeBps,
+            uint16 creatorFeeBps,
             bytes32 questionHash,
             bytes32 outcomesHash,
             bool resolved,
@@ -345,6 +352,7 @@ contract Platform is IPlatform, Ownable {
             m.allowEarlyResolve,
             m.makerFeeBps,
             m.takerFeeBps,
+            m.creatorFeeBps,
             m.questionHash,
             m.outcomesHash,
             m.resolved,
@@ -383,12 +391,18 @@ contract Platform is IPlatform, Ownable {
     function getMarketTradingFeesPoints(uint64 marketId) external view returns (uint128) {
         PlatformStorage storage s = StorageSlot.layout();
         _requireMarketExists(s, marketId);
+        // Unclaimed trading fees for this market (not yet split with creator).
         return s.markets[marketId].tradingFeesPoints;
     }
 
     function getProtocolDustPoints() external view returns (uint128) {
         PlatformStorage storage s = StorageSlot.layout();
         return s.protocolDustPoints;
+    }
+
+    function getProtocolFeesPoints() external view returns (uint128) {
+        PlatformStorage storage s = StorageSlot.layout();
+        return s.protocolFeesPoints;
     }
 
     function isFeeExempt(address account) external view returns (bool) {
@@ -403,6 +417,35 @@ contract Platform is IPlatform, Ownable {
         UserId uid = s.userIdOf[account];
         if (UserId.unwrap(uid) == 0) return false;
         return s.marketCreator[uid];
+    }
+
+    function sweepMarketFees(uint64 marketId) external returns (uint128 protocolFeesPoints, uint128 creatorFeesPoints) {
+        PlatformStorage storage s = StorageSlot.layout();
+        _requireMarketExists(s, marketId);
+
+        Market storage m = s.markets[marketId];
+        // Unclaimed trading fees for this market (not yet split with creator).
+        uint128 totalFees = m.tradingFeesPoints;
+        if (totalFees == 0) return (0, 0);
+
+        m.tradingFeesPoints = 0;
+
+        creatorFeesPoints = m.creatorFeeBps == 0 ? 0 : Fees.computeFee(totalFees, m.creatorFeeBps);
+        protocolFeesPoints = totalFees - creatorFeesPoints;
+
+        if (creatorFeesPoints > 0) {
+            Accounting.addFreePoints(s, UserId.wrap(m.creatorId), creatorFeesPoints);
+        }
+
+        if (protocolFeesPoints > 0) {
+            uint256 newProtocolFees = uint256(s.protocolFeesPoints) + uint256(protocolFeesPoints);
+            if (newProtocolFees > type(uint128).max) revert InvalidInput();
+            // forge-lint: disable-next-line(unsafe-typecast)
+            s.protocolFeesPoints = uint128(newProtocolFees);
+        }
+
+        emit MarketFeesSwept(marketId, protocolFeesPoints, creatorFeesPoints);
+        return (protocolFeesPoints, creatorFeesPoints);
     }
 
     function getCancelCandidates(uint64 marketId, uint8 outcomeId, uint8 side, uint32 targetOrderId, uint256 maxN)

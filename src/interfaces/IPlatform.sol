@@ -19,6 +19,7 @@ interface IPlatform {
         uint64 indexed resolverId,
         uint64 expirationAt,
         bool allowEarlyResolve,
+        uint16 creatorFeeBps,
         bytes32 questionHash,
         bytes32 outcomesHash,
         string question,
@@ -118,6 +119,9 @@ interface IPlatform {
     /// @notice Emitted after market creator role changes.
     event MarketCreatorUpdated(address indexed account, bool isCreator);
 
+    /// @notice Emitted after sweeping per-market trading fees.
+    event MarketFeesSwept(uint64 indexed marketId, uint128 protocolFeesPoints, uint128 creatorFeesPoints);
+
     // ==================== Market APIs ====================
 
     /// @notice Create a new market.
@@ -140,6 +144,7 @@ interface IPlatform {
         bool allowEarlyResolve,
         uint16 makerFeeBps,
         uint16 takerFeeBps,
+        uint16 creatorFeeBps,
         bytes32 questionHash,
         bytes32 outcomesHash,
         string calldata question,
@@ -167,6 +172,7 @@ interface IPlatform {
             bool allowEarlyResolve,
             uint16 makerFeeBps,
             uint16 takerFeeBps,
+            uint16 creatorFeeBps,
             bytes32 questionHash,
             bytes32 outcomesHash,
             bool resolved,
@@ -199,11 +205,14 @@ interface IPlatform {
 
     // ==================== Fee & Dust Views ====================
 
-    /// @notice Get accumulated trading fees for a market (Points).
+    /// @notice Get accumulated trading fees for a market (Points), unclaimed and not yet split with creator.
     function getMarketTradingFeesPoints(uint64 marketId) external view returns (uint128);
 
     /// @notice Get accumulated protocol dust (Points).
     function getProtocolDustPoints() external view returns (uint128);
+
+    /// @notice Get accumulated protocol fees (Points).
+    function getProtocolFeesPoints() external view returns (uint128);
 
     // ==================== Roles & Permissions ====================
 
@@ -212,6 +221,13 @@ interface IPlatform {
 
     /// @notice Check whether an account can create markets.
     function isMarketCreator(address account) external view returns (bool);
+
+    // ==================== Fee Sweeps ====================
+
+    /// @notice Sweep per-market trading fees into protocol/global and creator balances.
+    /// @return protocolFeesPoints Amount credited to protocol.
+    /// @return creatorFeesPoints Amount credited to market creator.
+    function sweepMarketFees(uint64 marketId) external returns (uint128 protocolFeesPoints, uint128 creatorFeesPoints);
 
     // ==================== User Registry ====================
 

@@ -34,6 +34,7 @@ contract AccountingTest is Test {
             true,
             MAKER_FEE_BPS,
             TAKER_FEE_BPS,
+            0,
             bytes32(0),
             bytes32(0),
             "Test market",
@@ -477,7 +478,7 @@ contract AccountingTest is Test {
         labels[1] = "No";
 
         uint64 marketId = platform.createMarket(
-            address(this), 2, 0, true, 0, 0, bytes32(0), bytes32(0), "Zero fee market", labels, "Rules"
+            address(this), 2, 0, true, 0, 0, 0, bytes32(0), bytes32(0), "Zero fee market", labels, "Rules"
         );
 
         // Seed balances for this market.
@@ -504,5 +505,66 @@ contract AccountingTest is Test {
         platform.take(marketId, OUTCOME, uint8(Side.Bid), tick, shares, shares);
 
         assertEq(platform.getMarketTradingFeesPoints(marketId), 0, "No fees should accrue at zero bps");
+    }
+
+    function test_SweepMarketFees_SplitsCreatorAndProtocol() public {
+        string[] memory labels = new string[](2);
+        labels[0] = "Yes";
+        labels[1] = "No";
+
+        uint16 creatorFeeBps = 2_000; // 20%
+        uint64 marketId = platform.createMarket(
+            address(this),
+            2,
+            0,
+            true,
+            MAKER_FEE_BPS,
+            TAKER_FEE_BPS,
+            creatorFeeBps,
+            bytes32(0),
+            bytes32(0),
+            "Creator fee market",
+            labels,
+            "Rules"
+        );
+
+        // Seed shares for this market.
+        vm.startPrank(alice);
+        platform.depositShares(marketId, OUTCOME, 1_000_000 * SHARES);
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        platform.depositShares(marketId, OUTCOME, 1_000_000 * SHARES);
+        vm.stopPrank();
+
+        uint128 shares = 100 * SHARES;
+        uint8 tick = 50;
+
+        vm.prank(alice);
+        (uint32 makerOrderId,,) = platform.placeLimit(marketId, OUTCOME, uint8(Side.Ask), tick, shares);
+
+        vm.prank(bob);
+        platform.take(marketId, OUTCOME, uint8(Side.Bid), tick, shares, shares);
+
+        uint128 sellerGross = _sellerGross(shares, tick);
+        uint128 makerFee = _fee(sellerGross, MAKER_FEE_BPS);
+        uint128 takerFee = _fee(sellerGross, TAKER_FEE_BPS);
+        uint128 totalFees = makerFee + takerFee;
+        uint128 creatorShare = _fee(totalFees, creatorFeeBps);
+
+        assertEq(platform.getMarketTradingFeesPoints(marketId), totalFees, "Fees should accrue per market");
+
+        (uint128 protocolFees, uint128 creatorFees) = platform.sweepMarketFees(marketId);
+        assertEq(protocolFees, totalFees - creatorShare, "Protocol share mismatch");
+        assertEq(creatorFees, creatorShare, "Creator share mismatch");
+
+        assertEq(platform.getMarketTradingFeesPoints(marketId), 0, "Market fees should be cleared");
+        assertEq(platform.getProtocolFeesPoints(), totalFees - creatorShare, "Protocol fees should accrue");
+
+        (uint128 creatorFree,) = platform.getPointsBalance(address(this));
+        assertEq(creatorFree, creatorShare, "Creator free points should increase");
+
+        // Silence unused variable warning in case of future edits.
+        assertTrue(makerOrderId > 0);
     }
 }

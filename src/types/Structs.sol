@@ -119,8 +119,9 @@ struct Market {
     // Per-market trading fee bps
     uint16 makerFeeBps;
     uint16 takerFeeBps;
+    uint16 creatorFeeBps; // share of trading fees to market creator (bps, max 25%)
 
-    // Accrued trading fees (Points)
+    // Accrued trading fees (Points) — unclaimed and not yet split with creator
     uint128 tradingFeesPoints;
 
     // Metadata anchors

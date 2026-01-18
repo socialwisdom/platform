@@ -24,6 +24,7 @@ library Markets {
         bool allowEarlyResolve,
         uint16 makerFeeBps,
         uint16 takerFeeBps,
+        uint16 creatorFeeBps,
         bytes32 questionHash,
         bytes32 outcomesHash
     ) internal returns (uint64 marketId) {
@@ -43,6 +44,7 @@ library Markets {
         m.allowEarlyResolve = allowEarlyResolve;
         m.makerFeeBps = makerFeeBps;
         m.takerFeeBps = takerFeeBps;
+        m.creatorFeeBps = creatorFeeBps;
         m.questionHash = questionHash;
         m.outcomesHash = outcomesHash;
         // resolved/finalized/winningOutcomeId default to zero values
