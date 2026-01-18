@@ -115,6 +115,9 @@ interface IPlatform {
     /// @notice Emitted after fee exemption state changes.
     event FeeExemptionUpdated(address indexed account, bool isExempt);
 
+    /// @notice Emitted after market creator role changes.
+    event MarketCreatorUpdated(address indexed account, bool isCreator);
+
     // ==================== Market APIs ====================
 
     /// @notice Create a new market.
@@ -202,8 +205,13 @@ interface IPlatform {
     /// @notice Get accumulated protocol dust (Points).
     function getProtocolDustPoints() external view returns (uint128);
 
+    // ==================== Roles & Permissions ====================
+
     /// @notice Check whether an account is fee-exempt.
     function isFeeExempt(address account) external view returns (bool);
+
+    /// @notice Check whether an account can create markets.
+    function isMarketCreator(address account) external view returns (bool);
 
     // ==================== User Registry ====================
 
@@ -247,6 +255,11 @@ interface IPlatform {
 
     /// @notice Set fee exemption status for an account (Owner only).
     function setFeeExempt(address account, bool isExempt) external;
+
+    // ==================== Admin: Market Creator Role ====================
+
+    /// @notice Set market creator role for an account (Owner only).
+    function setMarketCreator(address account, bool isCreator) external;
 
     // ==================== Trading APIs ====================
 

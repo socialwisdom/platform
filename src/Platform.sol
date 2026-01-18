@@ -34,7 +34,11 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract Platform is IPlatform, Ownable {
     uint64 public constant RESOLVE_FINALIZE_DELAY = 1 hours;
 
-    constructor() Ownable(msg.sender) {}
+    constructor() Ownable(msg.sender) {
+        PlatformStorage storage s = StorageSlot.layout();
+        UserId ownerId = _getOrRegister(s, msg.sender);
+        s.marketCreator[ownerId] = true;
+    }
 
     // ==================== User Registry ====================
 
@@ -250,13 +254,14 @@ contract Platform is IPlatform, Ownable {
         string calldata question,
         string[] calldata outcomeLabels,
         string calldata resolutionRules
-    ) external onlyOwner returns (uint64 marketId) {
+    ) external returns (uint64 marketId) {
         PlatformStorage storage s = StorageSlot.layout();
+
+        UserId creatorId = _getOrRegister(s, msg.sender);
+        if (!_isMarketCreator(s, creatorId)) revert Unauthorized();
 
         Fees.validateFeeBps(makerFeeBps);
         Fees.validateFeeBps(takerFeeBps);
-
-        UserId creatorId = _getOrRegister(s, msg.sender);
         UserId resolverId = _getOrRegister(s, resolver);
 
         marketId = Markets.createMarket(
@@ -393,6 +398,13 @@ contract Platform is IPlatform, Ownable {
         return s.feeExempt[uid];
     }
 
+    function isMarketCreator(address account) external view returns (bool) {
+        PlatformStorage storage s = StorageSlot.layout();
+        UserId uid = s.userIdOf[account];
+        if (UserId.unwrap(uid) == 0) return false;
+        return s.marketCreator[uid];
+    }
+
     function getCancelCandidates(uint64 marketId, uint8 outcomeId, uint8 side, uint32 targetOrderId, uint256 maxN)
         external
         view
@@ -482,6 +494,13 @@ contract Platform is IPlatform, Ownable {
         UserId uid = _getOrRegister(s, account);
         s.feeExempt[uid] = isExempt;
         emit FeeExemptionUpdated(account, isExempt);
+    }
+
+    function setMarketCreator(address account, bool isCreator) external onlyOwner {
+        PlatformStorage storage s = StorageSlot.layout();
+        UserId uid = _getOrRegister(s, account);
+        s.marketCreator[uid] = isCreator;
+        emit MarketCreatorUpdated(account, isCreator);
     }
 
     // ==================== Internal Helpers ====================
@@ -684,6 +703,10 @@ contract Platform is IPlatform, Ownable {
 
     function _isFeeExempt(PlatformStorage storage s, UserId userId) internal view returns (bool) {
         return s.feeExempt[userId];
+    }
+
+    function _isMarketCreator(PlatformStorage storage s, UserId userId) internal view returns (bool) {
+        return s.marketCreator[userId];
     }
 
     function _reserveBidWithFee(
