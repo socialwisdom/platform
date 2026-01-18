@@ -17,6 +17,9 @@ contract OrderBookGasTest is Test {
     uint64 internal constant MARKET = 1;
     uint8 internal constant OUTCOME = 0;
 
+    uint128 internal constant POINTS = 1e6;
+    uint128 internal constant SHARES = 1e6;
+
     function setUp() public {
         platform = new Platform();
         _initMarket();
@@ -28,7 +31,7 @@ contract OrderBookGasTest is Test {
         labels[0] = "Yes";
         labels[1] = "No";
         platform.createMarket(
-            address(this), 2, 0, true, bytes32(0), bytes32(0), bytes32(0), "Test market", labels, "Test rules"
+            address(this), 2, 0, true, 0, 0, bytes32(0), bytes32(0), "Test market", labels, "Test rules"
         );
     }
 
@@ -38,8 +41,8 @@ contract OrderBookGasTest is Test {
             address u = users[i];
             vm.startPrank(u);
             platform.register();
-            platform.deposit(1_000_000_000);
-            platform.depositShares(MARKET, OUTCOME, 1_000_000_000);
+            platform.deposit(1_000_000_000_000_000 * POINTS);
+            platform.depositShares(MARKET, OUTCOME, 1_000_000_000 * SHARES);
             vm.stopPrank();
         }
     }
@@ -114,7 +117,7 @@ contract OrderBookGasTest is Test {
 
     function testGas_placeLimit_noMatch_rest() public {
         uint256 g0 = gasleft();
-        (uint32 id, uint128 filled,) = _place(carol, uint8(Side.Ask), 10, 100);
+        (uint32 id, uint128 filled,) = _place(carol, uint8(Side.Ask), 10, 100 * SHARES);
         uint256 used = g0 - gasleft();
 
         assertTrue(id != 0);
@@ -124,14 +127,14 @@ contract OrderBookGasTest is Test {
     }
 
     function testGas_placeLimit_matchThenRest() public {
-        uint32[] memory asks = _seedAsksAtTick(10, 5, 20);
+        uint32[] memory asks = _seedAsksAtTick(10, 5, 20 * SHARES);
 
         uint256 g0 = gasleft();
-        (uint32 id, uint128 filled,) = _place(dave, uint8(Side.Bid), 10, 150);
+        (uint32 id, uint128 filled,) = _place(dave, uint8(Side.Bid), 10, 150 * SHARES);
         uint256 used = g0 - gasleft();
 
         assertTrue(id != 0);
-        assertEq(filled, 100);
+        assertEq(filled, 100 * SHARES);
 
         (uint256 touched, uint256 fullFill, uint256 partialFill) = _countMatchesFromSeeded(asks, uint8(Side.Ask));
         emit log_named_uint("match.placeLimit.touched", touched);
@@ -146,13 +149,13 @@ contract OrderBookGasTest is Test {
     // -------------------------
 
     function testGas_take_singleLevel_fullFill() public {
-        uint32[] memory asks = _seedAsksAtTick(10, 5, 20);
+        uint32[] memory asks = _seedAsksAtTick(10, 5, 20 * SHARES);
 
         uint256 g0 = gasleft();
-        (uint128 filled,) = _take(carol, uint8(Side.Bid), 10, 60, 60);
+        (uint128 filled,) = _take(carol, uint8(Side.Bid), 10, 60 * SHARES, 60 * SHARES);
         uint256 used = g0 - gasleft();
 
-        assertEq(filled, 60);
+        assertEq(filled, 60 * SHARES);
 
         (uint256 touched, uint256 fullFill, uint256 partialFill) = _countMatchesFromSeeded(asks, uint8(Side.Ask));
         emit log_named_uint("match.take.singleLevel.touched", touched);
@@ -163,7 +166,7 @@ contract OrderBookGasTest is Test {
     }
 
     function testGas_take_walkManyLevels_fullFill() public {
-        uint256 total = _seedAsksManyLevels(10, 20, 10, 5);
+        uint256 total = _seedAsksManyLevels(10, 20, 10, 5 * SHARES);
 
         assertLe(total, type(uint128).max);
 
@@ -183,19 +186,19 @@ contract OrderBookGasTest is Test {
     // -------------------------
 
     function testGas_cancel_head_O1() public {
-        uint32[] memory ids = _seedAsksAtTick(10, 5, 20);
+        uint32[] memory ids = _seedAsksAtTick(10, 5, 20 * SHARES);
 
         uint256 g0 = gasleft();
         vm.prank(alice);
         uint128 cancelled = platform.cancel(MARKET, OUTCOME, uint8(Side.Ask), ids[0], new uint32[](0));
         uint256 used = g0 - gasleft();
 
-        assertEq(cancelled, 20);
+        assertEq(cancelled, 20 * SHARES);
         emit log_named_uint("gas.cancel.head.O1", used);
     }
 
     function testGas_cancel_middle_withCandidates() public {
-        uint32[] memory ids = _seedAsksAtTick(10, 20, 10);
+        uint32[] memory ids = _seedAsksAtTick(10, 20, 10 * SHARES);
 
         uint32 target = ids[14];
 
@@ -207,12 +210,12 @@ contract OrderBookGasTest is Test {
         uint128 cancelled = platform.cancel(MARKET, OUTCOME, uint8(Side.Ask), target, candidates);
         uint256 used = g0 - gasleft();
 
-        assertEq(cancelled, 10);
+        assertEq(cancelled, 10 * SHARES);
         emit log_named_uint("gas.cancel.middle.withCandidates.N8", used);
     }
 
     function testGas_cancel_middle_candidatesCurve() public {
-        uint32[] memory ids = _seedAsksAtTick(10, 60, 10);
+        uint32[] memory ids = _seedAsksAtTick(10, 60, 10 * SHARES);
         uint32 target = ids[40];
 
         uint32[] memory c2 = platform.getCancelCandidates(MARKET, OUTCOME, uint8(Side.Ask), target, 2);
@@ -226,7 +229,7 @@ contract OrderBookGasTest is Test {
         platform = new Platform();
         _initMarket();
         _setupUsers();
-        ids = _seedAsksAtTick(10, 60, 10);
+        ids = _seedAsksAtTick(10, 60, 10 * SHARES);
         target = ids[40];
 
         uint32[] memory c4 = platform.getCancelCandidates(MARKET, OUTCOME, uint8(Side.Ask), target, 4);
@@ -240,7 +243,7 @@ contract OrderBookGasTest is Test {
         platform = new Platform();
         _initMarket();
         _setupUsers();
-        ids = _seedAsksAtTick(10, 60, 10);
+        ids = _seedAsksAtTick(10, 60, 10 * SHARES);
         target = ids[40];
 
         uint32[] memory c16 = platform.getCancelCandidates(MARKET, OUTCOME, uint8(Side.Ask), target, 16);
@@ -252,13 +255,13 @@ contract OrderBookGasTest is Test {
     }
 
     function testGas_take_singleLevel_fifoWorstCase() public {
-        uint32[] memory asks = _seedAsksAtTick(10, 200, 1);
+        uint32[] memory asks = _seedAsksAtTick(10, 200, 1 * SHARES);
 
         uint256 g0 = gasleft();
-        (uint128 filled,) = _take(dave, uint8(Side.Bid), 10, 200, 200);
+        (uint128 filled,) = _take(dave, uint8(Side.Bid), 10, 200 * SHARES, 200 * SHARES);
         uint256 used = g0 - gasleft();
 
-        assertEq(filled, 200);
+        assertEq(filled, 200 * SHARES);
 
         (uint256 touched, uint256 fullFill, uint256 partialFill) = _countMatchesFromSeeded(asks, uint8(Side.Ask));
         emit log_named_uint("match.take.fifoWorstCase.touched", touched);

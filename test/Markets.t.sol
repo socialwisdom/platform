@@ -22,6 +22,9 @@ contract MarketsTest is Test {
     address internal alice = address(0xA11CE);
     address internal bob = address(0xB0B);
 
+    uint128 internal constant POINTS = 1e6;
+    uint128 internal constant SHARES = 1e6;
+
     function setUp() public {
         platform = new Platform();
     }
@@ -35,7 +38,7 @@ contract MarketsTest is Test {
         labels[1] = "No";
 
         marketId = platform.createMarket(
-            marketResolver, 2, expirationAt, allowEarlyResolve, bytes32(0), bytes32(0), bytes32(0), "Q", labels, "Rules"
+            marketResolver, 2, expirationAt, allowEarlyResolve, 0, 0, bytes32(0), bytes32(0), "Q", labels, "Rules"
         );
     }
 
@@ -47,8 +50,7 @@ contract MarketsTest is Test {
         vm.expectEmit(true, true, true, true);
         emit IPlatform.MarketCreated(1, 1, 2, 0, true, bytes32(0), bytes32(0), "Q", labels, "Rules");
 
-        uint64 first =
-            platform.createMarket(resolver, 2, 0, true, bytes32(0), bytes32(0), bytes32(0), "Q", labels, "Rules");
+        uint64 first = platform.createMarket(resolver, 2, 0, true, 0, 0, bytes32(0), bytes32(0), "Q", labels, "Rules");
 
         uint64 second = _createMarket(resolver, 0, true);
 
@@ -92,24 +94,24 @@ contract MarketsTest is Test {
         // Setup user
         vm.startPrank(alice);
         platform.register();
-        platform.deposit(1_000_000);
-        platform.depositShares(marketId, 0, 1_000_000);
+        platform.deposit(1_000_000 * POINTS);
+        platform.depositShares(marketId, 0, 1_000_000 * SHARES);
         vm.stopPrank();
 
         // Place while active
         vm.prank(alice);
-        (uint32 orderId,,) = platform.placeLimit(marketId, 0, uint8(Side.Ask), 50, 100);
+        (uint32 orderId,,) = platform.placeLimit(marketId, 0, uint8(Side.Ask), 50, 100 * SHARES);
 
         // Expire market
         vm.warp(block.timestamp + 10);
 
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(MarketNotActive.selector, marketId));
-        platform.placeLimit(marketId, 0, uint8(Side.Ask), 50, 100);
+        platform.placeLimit(marketId, 0, uint8(Side.Ask), 50, 100 * SHARES);
 
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(MarketNotActive.selector, marketId));
-        platform.take(marketId, 0, uint8(Side.Ask), 50, 100, 1);
+        platform.take(marketId, 0, uint8(Side.Ask), 50, 100 * SHARES, 1 * SHARES);
 
         vm.prank(alice);
         platform.cancel(marketId, 0, uint8(Side.Ask), orderId, new uint32[](0));
@@ -189,7 +191,7 @@ contract MarketsTest is Test {
         vm.prank(resolver);
         platform.resolveMarket(marketId, 1);
 
-        (,,,,,,,, bool resolved, bool finalized, uint8 winningOutcomeId) = platform.getMarket(marketId);
+        (,,,,,,,,, bool resolved, bool finalized, uint8 winningOutcomeId) = platform.getMarket(marketId);
         assertTrue(resolved);
         assertFalse(finalized);
         assertEq(winningOutcomeId, 1);

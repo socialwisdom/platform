@@ -6,6 +6,7 @@ import {BookState, Level, Order, PointsBalance, SharesBalance, Market} from "../
 
 /// @notice Canonical storage layout (append-only).
 /// Append-only: when adding new subsystems later, ONLY append new fields/sections.
+/// If you fully understand the storage layout and upgrade implications, you may intentionally bypass this.
 ///
 /// GLOBAL INVARIANTS (high-level):
 /// - books[bookKey].nextOrderId is monotonically increasing per book (start at 1; 0 reserved as "null").
@@ -45,5 +46,12 @@ struct PlatformStorage {
     // --- Markets ---
     uint64 nextMarketId; // starts at 1
     mapping(uint64 => Market) markets;
+
+    // --- Fees and Dust ---
+    // Global dust counter (Points)
+    uint128 protocolDustPoints;
+
+    // Fee exemption mapping (UserId => exempt)
+    mapping(UserId => bool) feeExempt;
     // (Append new storage below this line in future iterations.)
 }

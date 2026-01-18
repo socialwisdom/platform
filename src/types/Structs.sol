@@ -109,9 +109,6 @@ struct Order {
 
 /// @notice Market definition and lifecycle flags.
 /// STORAGE PACKING: not optimized yet; kept minimal and append-only once used.
-///
-/// NOTE: feeParams is a placeholder for per-market fee configuration.
-/// The exact encoding is undefined in protocol docs and needs clarification.
 struct Market {
     uint64 creatorId;
     uint64 resolverId;
@@ -119,8 +116,12 @@ struct Market {
     uint64 expirationAt; // 0 means "no expiration"
     bool allowEarlyResolve;
 
-    // Placeholder for per-market fee parameters (needs clarification)
-    bytes32 feeParams;
+    // Per-market trading fee bps
+    uint16 makerFeeBps;
+    uint16 takerFeeBps;
+
+    // Accrued trading fees (Points)
+    uint128 tradingFeesPoints;
 
     // Metadata anchors
     bytes32 questionHash;

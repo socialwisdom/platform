@@ -46,3 +46,6 @@ error MarketNotResolved(uint64 marketId);
 error MarketAlreadyFinalized(uint64 marketId);
 error MarketResolveTooEarly(uint64 marketId, uint64 expirationAt);
 error MarketFinalizeTooEarly(uint64 marketId, uint64 earliestFinalizeAt);
+
+// Fee / dust errors
+error FeeBpsTooHigh(uint16 feeBps, uint16 maxFeeBps);

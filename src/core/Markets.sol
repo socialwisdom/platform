@@ -22,7 +22,8 @@ library Markets {
         uint8 outcomesCount,
         uint64 expirationAt,
         bool allowEarlyResolve,
-        bytes32 feeParams,
+        uint16 makerFeeBps,
+        uint16 takerFeeBps,
         bytes32 questionHash,
         bytes32 outcomesHash
     ) internal returns (uint64 marketId) {
@@ -40,7 +41,8 @@ library Markets {
         m.outcomesCount = outcomesCount;
         m.expirationAt = expirationAt;
         m.allowEarlyResolve = allowEarlyResolve;
-        m.feeParams = feeParams; // placeholder, needs clarification
+        m.makerFeeBps = makerFeeBps;
+        m.takerFeeBps = takerFeeBps;
         m.questionHash = questionHash;
         m.outcomesHash = outcomesHash;
         // resolved/finalized/winningOutcomeId default to zero values

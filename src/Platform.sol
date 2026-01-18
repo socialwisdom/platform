@@ -28,6 +28,7 @@ import {Matching} from "./core/Matching.sol";
 import {Deposits} from "./core/Deposits.sol";
 import {Accounting} from "./core/Accounting.sol";
 import {Markets} from "./core/Markets.sol";
+import {Fees} from "./core/Fees.sol";
 
 contract Platform is IPlatform {
     uint64 public constant RESOLVE_FINALIZE_DELAY = 1 hours;
@@ -132,19 +133,18 @@ contract Platform is IPlatform {
         _requireActiveMarket(s, marketId, outcomeId);
         UserId uid = _getOrRegister(s, msg.sender);
 
+        (uint16 makerFeeBps, uint16 takerFeeBps) = _getMarketFeeBps(s, marketId);
+        bool feeExempt = _isFeeExempt(s, uid);
+
         BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
         if (Side(side) == Side.Bid) {
-            uint256 requiredPoints = uint256(sharesRequested) * uint256(limitTick);
-            if (requiredPoints > type(uint128).max) revert InvalidInput();
-            // casting to 'uint128' is safe because the value is checked against type(uint128).max above
-            // forge-lint: disable-next-line(unsafe-typecast)
-            Accounting.reservePoints(s, uid, uint128(requiredPoints));
+            uint16 reserveFeeBps = feeExempt ? 0 : (makerFeeBps >= takerFeeBps ? makerFeeBps : takerFeeBps);
+            _reserveBidWithFee(s, uid, Tick.wrap(limitTick), sharesRequested, reserveFeeBps);
         } else {
             Accounting.reserveShares(s, uid, bookKey, sharesRequested);
         }
 
         OrderId placedOrderId = OrderBook.placeLimit(s, uid, bookKey, Tick.wrap(limitTick), sharesRequested);
-
         emit OrderPlaced(
             marketId, outcomeId, UserId.unwrap(uid), side, OrderId.unwrap(placedOrderId), limitTick, sharesRequested
         );
@@ -177,13 +177,13 @@ contract Platform is IPlatform {
         _requireActiveMarket(s, marketId, outcomeId);
         UserId uid = _getOrRegister(s, msg.sender);
 
+        (, uint16 takerFeeBps) = _getMarketFeeBps(s, marketId);
+        bool feeExempt = _isFeeExempt(s, uid);
+
         // Reserve principal upfront (market orders never rest).
         if (Side(side) == Side.Bid) {
-            uint256 requiredPoints = uint256(sharesRequested) * uint256(limitTick);
-            if (requiredPoints > type(uint128).max) revert InvalidInput();
-            // casting to 'uint128' is safe because the value is checked against type(uint128).max above
-            // forge-lint: disable-next-line(unsafe-typecast)
-            Accounting.reservePoints(s, uid, uint128(requiredPoints));
+            uint16 reserveFeeBps = feeExempt ? 0 : takerFeeBps;
+            _reserveBidWithFee(s, uid, Tick.wrap(limitTick), sharesRequested, reserveFeeBps);
         } else {
             Accounting.reserveShares(s, uid, BookKeyLib.pack(marketId, outcomeId, Side(side)), sharesRequested);
         }
@@ -198,7 +198,8 @@ contract Platform is IPlatform {
         if (filledShares < sharesRequested) {
             uint128 unfilled = sharesRequested - filledShares;
             if (Side(side) == Side.Bid) {
-                Accounting.releasePoints(s, uid, uint128(uint256(unfilled) * uint256(limitTick)));
+                uint16 releaseFeeBps = feeExempt ? 0 : takerFeeBps;
+                _releaseBidReservation(s, uid, Tick.wrap(limitTick), unfilled, releaseFeeBps);
             } else {
                 Accounting.releaseShares(s, uid, BookKeyLib.pack(marketId, outcomeId, Side(side)), unfilled);
             }
@@ -220,17 +221,17 @@ contract Platform is IPlatform {
         _requireMarketExistsAndOutcome(s, marketId, outcomeId);
         UserId uid = _getOrRegister(s, msg.sender);
 
+        (uint16 makerFeeBps, uint16 takerFeeBps) = _getMarketFeeBps(s, marketId);
+        bool feeExempt = _isFeeExempt(s, uid);
+
         BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
 
         Tick tick;
         (cancelledShares,, tick) = OrderBook.cancel(s, uid, bookKey, OrderId.wrap(orderId), prevCandidates);
 
         if (Side(side) == Side.Bid) {
-            uint256 reservedU256 = uint256(cancelledShares) * uint256(Tick.unwrap(tick));
-            if (reservedU256 > type(uint128).max) revert InvalidInput();
-            // casting to 'uint128' is safe because the value is checked against type(uint128).max above
-            // forge-lint: disable-next-line(unsafe-typecast)
-            Accounting.releasePoints(s, uid, uint128(reservedU256));
+            uint16 reservedFeeBps = feeExempt ? 0 : (makerFeeBps >= takerFeeBps ? makerFeeBps : takerFeeBps);
+            _releaseBidReservation(s, uid, tick, cancelledShares, reservedFeeBps);
         } else {
             Accounting.releaseShares(s, uid, bookKey, cancelledShares);
         }
@@ -246,7 +247,8 @@ contract Platform is IPlatform {
         uint8 outcomesCount,
         uint64 expirationAt,
         bool allowEarlyResolve,
-        bytes32 feeParams,
+        uint16 makerFeeBps,
+        uint16 takerFeeBps,
         bytes32 questionHash,
         bytes32 outcomesHash,
         string calldata question,
@@ -255,6 +257,9 @@ contract Platform is IPlatform {
     ) external returns (uint64 marketId) {
         PlatformStorage storage s = StorageSlot.layout();
         _onlyOwner(s);
+
+        Fees.validateFeeBps(makerFeeBps);
+        Fees.validateFeeBps(takerFeeBps);
 
         UserId creatorId = _getOrRegister(s, msg.sender);
         UserId resolverId = _getOrRegister(s, resolver);
@@ -266,7 +271,8 @@ contract Platform is IPlatform {
             outcomesCount,
             expirationAt,
             allowEarlyResolve,
-            feeParams,
+            makerFeeBps,
+            takerFeeBps,
             questionHash,
             outcomesHash
         );
@@ -318,7 +324,8 @@ contract Platform is IPlatform {
             uint8 outcomesCount,
             uint64 expirationAt,
             bool allowEarlyResolve,
-            bytes32 feeParams,
+            uint16 makerFeeBps,
+            uint16 takerFeeBps,
             bytes32 questionHash,
             bytes32 outcomesHash,
             bool resolved,
@@ -336,7 +343,8 @@ contract Platform is IPlatform {
             m.outcomesCount,
             m.expirationAt,
             m.allowEarlyResolve,
-            m.feeParams,
+            m.makerFeeBps,
+            m.takerFeeBps,
             m.questionHash,
             m.outcomesHash,
             m.resolved,
@@ -370,6 +378,24 @@ contract Platform is IPlatform {
         if (UserId.unwrap(uid) == 0) return (0, 0);
         BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side.Ask);
         return Accounting.getSharesBalance(s, uid, bookKey);
+    }
+
+    function getMarketTradingFeesPoints(uint64 marketId) external view returns (uint128) {
+        PlatformStorage storage s = StorageSlot.layout();
+        _requireMarketExists(s, marketId);
+        return s.markets[marketId].tradingFeesPoints;
+    }
+
+    function getProtocolDustPoints() external view returns (uint128) {
+        PlatformStorage storage s = StorageSlot.layout();
+        return s.protocolDustPoints;
+    }
+
+    function isFeeExempt(address account) external view returns (bool) {
+        PlatformStorage storage s = StorageSlot.layout();
+        UserId uid = s.userIdOf[account];
+        if (UserId.unwrap(uid) == 0) return false;
+        return s.feeExempt[uid];
     }
 
     function getCancelCandidates(uint64 marketId, uint8 outcomeId, uint8 side, uint32 targetOrderId, uint256 maxN)
@@ -454,6 +480,16 @@ contract Platform is IPlatform {
         );
     }
 
+    // ==================== Admin: Fee Exemptions ====================
+
+    function setFeeExempt(address account, bool isExempt) external {
+        PlatformStorage storage s = StorageSlot.layout();
+        _onlyOwner(s);
+        UserId uid = _getOrRegister(s, account);
+        s.feeExempt[uid] = isExempt;
+        emit FeeExemptionUpdated(account, isExempt);
+    }
+
     // ==================== Internal Helpers ====================
 
     function _getOrRegister(PlatformStorage storage s, address user) internal returns (UserId) {
@@ -521,12 +557,12 @@ contract Platform is IPlatform {
                 Matching.matchOneStep(s, makerBookKey, makerSide, takerOrderId, limitTick, remaining);
             if (fill.sharesFilled == 0) break;
 
-            _processMatch(
+            uint128 pointsExchanged = _processMatch(
                 s, marketId, outcomeId, takerSide, limitTick, takerOrderId, takerUserId, makerBookKey, makerSide, fill
             );
 
             totalFilled += fill.sharesFilled;
-            totalPointsTraded += uint256(fill.sharesFilled) * uint256(Tick.unwrap(fill.tick));
+            totalPointsTraded += pointsExchanged;
             remaining -= fill.sharesFilled;
         }
         return (totalFilled, totalPointsTraded);
@@ -543,35 +579,89 @@ contract Platform is IPlatform {
         BookKey makerBookKey,
         Side makerSide,
         Matching.FillInfo memory fill
-    ) private {
+    ) private returns (uint128 pointsExchanged) {
         Order storage makerOrder = s.orders[Keys.orderKey(makerBookKey, fill.makerId)];
         UserId makerId = makerOrder.ownerId;
 
-        // Precompute amounts used by both maker and taker
-        uint128 executionValue = uint128(uint256(fill.sharesFilled) * uint256(Tick.unwrap(fill.tick)));
+        (uint16 makerFeeBps, uint16 takerFeeBps) = _getMarketFeeBps(s, marketId);
+        uint16 maxFeeBps = makerFeeBps >= takerFeeBps ? makerFeeBps : takerFeeBps;
+
+        bool makerExempt = _isFeeExempt(s, makerId);
+        bool takerExempt = _isFeeExempt(s, takerUserId);
+
+        // Precompute amounts used by both maker and taker (price math per spec)
+        (uint128 sellerGross, uint128 buyerPaid, uint128 dust) = Fees.computeNotional(fill.sharesFilled, fill.tick);
+        pointsExchanged = sellerGross;
+
+        uint128 makerFee = makerExempt ? 0 : Fees.computeFee(sellerGross, makerFeeBps);
+        uint128 takerFee = takerExempt ? 0 : Fees.computeFee(sellerGross, takerFeeBps);
+
+        if (dust > 0) {
+            uint256 newDust = uint256(s.protocolDustPoints) + uint256(dust);
+            if (newDust > type(uint128).max) revert InvalidInput();
+            // casting to 'uint128' is safe because of the bound check above
+            // forge-lint: disable-next-line(unsafe-typecast)
+            s.protocolDustPoints = uint128(newDust);
+        }
+
+        uint256 feeAccrual = uint256(makerFee) + uint256(takerFee);
+        if (feeAccrual > 0) {
+            uint256 newFees = uint256(s.markets[marketId].tradingFeesPoints) + feeAccrual;
+            if (newFees > type(uint128).max) revert InvalidInput();
+            // casting to 'uint128' is safe because of the bound check above
+            // forge-lint: disable-next-line(unsafe-typecast)
+            s.markets[marketId].tradingFeesPoints = uint128(newFees);
+        }
+
         BookKey sharesKey = BookKeyLib.pack(marketId, outcomeId, Side.Ask);
 
         // Maker (Resting) - always settled at execution tick
         if (makerSide == Side.Bid) {
-            Accounting.consumeReservedPoints(s, makerId, executionValue);
+            Accounting.consumeReservedPoints(s, makerId, buyerPaid + makerFee);
             Accounting.addFreeShares(s, makerId, sharesKey, fill.sharesFilled);
+
+            // Release excess fee reservation if maxFeeBps > makerFeeBps
+            if (!makerExempt && maxFeeBps > makerFeeBps) {
+                uint128 reservedFee = Fees.computeFee(sellerGross, maxFeeBps);
+                if (reservedFee > makerFee) {
+                    Accounting.releasePoints(s, makerId, reservedFee - makerFee);
+                }
+            }
         } else {
             Accounting.consumeReservedShares(s, makerId, makerBookKey, fill.sharesFilled);
-            Accounting.addFreePoints(s, makerId, executionValue);
+            Accounting.addFreePoints(s, makerId, sellerGross - makerFee);
         }
 
         // Taker - logic is identical for limit and market orders
         if (takerSide == Side.Bid) {
-            uint128 reserved = uint128(uint256(fill.sharesFilled) * uint256(Tick.unwrap(limitTick)));
-            Accounting.consumeReservedPoints(s, takerUserId, executionValue);
-            if (reserved > executionValue) {
-                Accounting.releasePoints(s, takerUserId, reserved - executionValue);
+            Accounting.consumeReservedPoints(s, takerUserId, buyerPaid + takerFee);
+
+            // Release principal price improvement from limitTick to execution tick
+            uint128 reservedPrincipal = Fees.computeBuyerPaid(fill.sharesFilled, limitTick);
+            if (reservedPrincipal > buyerPaid) {
+                Accounting.releasePoints(s, takerUserId, reservedPrincipal - buyerPaid);
             }
+
+            // Release excess fee reservation (limit orders reserve maxFeeBps; takes reserve takerFeeBps)
+            uint16 reservedFeeBps = 0;
+            if (OrderId.unwrap(placedOrderId) == 0) {
+                reservedFeeBps = takerExempt ? 0 : takerFeeBps;
+            } else {
+                reservedFeeBps = takerExempt ? 0 : maxFeeBps;
+            }
+            if (reservedFeeBps > 0) {
+                uint128 reservedFee =
+                    Fees.computeFee(Fees.computeSellerGross(fill.sharesFilled, limitTick), reservedFeeBps);
+                if (reservedFee > takerFee) {
+                    Accounting.releasePoints(s, takerUserId, reservedFee - takerFee);
+                }
+            }
+
             Accounting.addFreeShares(s, takerUserId, sharesKey, fill.sharesFilled);
         } else {
             BookKey takerBookKey = BookKeyLib.pack(marketId, outcomeId, takerSide);
             Accounting.consumeReservedShares(s, takerUserId, takerBookKey, fill.sharesFilled);
-            Accounting.addFreePoints(s, takerUserId, executionValue);
+            Accounting.addFreePoints(s, takerUserId, sellerGross - takerFee);
         }
 
         emit Trade(
@@ -584,9 +674,49 @@ contract Platform is IPlatform {
             OrderId.unwrap(placedOrderId),
             Tick.unwrap(fill.tick),
             fill.sharesFilled,
-            executionValue,
-            0,
-            0 // TODO: fees
+            sellerGross,
+            makerFee,
+            takerFee
         );
+
+        return pointsExchanged;
+    }
+
+    function _getMarketFeeBps(PlatformStorage storage s, uint64 marketId)
+        internal
+        view
+        returns (uint16 makerFeeBps, uint16 takerFeeBps)
+    {
+        Market storage m = s.markets[marketId];
+        makerFeeBps = m.makerFeeBps;
+        takerFeeBps = m.takerFeeBps;
+    }
+
+    function _isFeeExempt(PlatformStorage storage s, UserId userId) internal view returns (bool) {
+        return s.feeExempt[userId];
+    }
+
+    function _reserveBidWithFee(
+        PlatformStorage storage s,
+        UserId userId,
+        Tick limitTick,
+        uint128 sharesRequested,
+        uint16 feeBps
+    ) internal {
+        uint128 buyerPaid = Fees.computeBuyerPaid(sharesRequested, limitTick);
+        uint128 fee = feeBps == 0 ? 0 : Fees.computeMaxFee(sharesRequested, limitTick, feeBps);
+        Accounting.reservePoints(s, userId, buyerPaid + fee);
+    }
+
+    function _releaseBidReservation(
+        PlatformStorage storage s,
+        UserId userId,
+        Tick limitTick,
+        uint128 sharesRemaining,
+        uint16 feeBps
+    ) internal {
+        uint128 buyerPaid = Fees.computeBuyerPaid(sharesRemaining, limitTick);
+        uint128 fee = feeBps == 0 ? 0 : Fees.computeMaxFee(sharesRemaining, limitTick, feeBps);
+        Accounting.releasePoints(s, userId, buyerPaid + fee);
     }
 }

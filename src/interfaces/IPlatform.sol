@@ -122,7 +122,8 @@ interface IPlatform {
     /// @param outcomesCount Number of outcomes in the market.
     /// @param expirationAt Timestamp when trading expires (0 = no expiration).
     /// @param allowEarlyResolve Whether resolver can resolve before expiration.
-    /// @param feeParams Placeholder for per-market fee configuration (needs clarification).
+    /// @param makerFeeBps Maker trading fee in bps.
+    /// @param takerFeeBps Taker trading fee in bps.
     /// @param questionHash Hash of question metadata.
     /// @param outcomesHash Hash of outcomes metadata.
     /// @param question Human-readable question (event only).
@@ -134,7 +135,8 @@ interface IPlatform {
         uint8 outcomesCount,
         uint64 expirationAt,
         bool allowEarlyResolve,
-        bytes32 feeParams,
+        uint16 makerFeeBps,
+        uint16 takerFeeBps,
         bytes32 questionHash,
         bytes32 outcomesHash,
         string calldata question,
@@ -160,7 +162,8 @@ interface IPlatform {
             uint8 outcomesCount,
             uint64 expirationAt,
             bool allowEarlyResolve,
-            bytes32 feeParams,
+            uint16 makerFeeBps,
+            uint16 takerFeeBps,
             bytes32 questionHash,
             bytes32 outcomesHash,
             bool resolved,
@@ -190,6 +193,17 @@ interface IPlatform {
         external
         view
         returns (uint128 free, uint128 reserved);
+
+    // ==================== Fee & Dust Views ====================
+
+    /// @notice Get accumulated trading fees for a market (Points).
+    function getMarketTradingFeesPoints(uint64 marketId) external view returns (uint128);
+
+    /// @notice Get accumulated protocol dust (Points).
+    function getProtocolDustPoints() external view returns (uint128);
+
+    /// @notice Check whether an account is fee-exempt.
+    function isFeeExempt(address account) external view returns (bool);
 
     // ==================== User Registry ====================
 
@@ -228,6 +242,11 @@ interface IPlatform {
     /// @param outcomeId The outcome index for these shares.
     /// @param amount Shares to withdraw.
     function withdrawShares(uint64 marketId, uint8 outcomeId, uint128 amount) external;
+
+    // ==================== Admin: Fee Exemptions ====================
+
+    /// @notice Set fee exemption status for an account (Owner only).
+    function setFeeExempt(address account, bool isExempt) external;
 
     // ==================== Trading APIs ====================
 
