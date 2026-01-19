@@ -297,7 +297,7 @@ The winning fee:
 
 ### 5.3 Market Creator Incentives
 
-Market creators may receive a predefined share of the winning fee.
+Market creators may receive a predefined share of **trading fees**.
 
 - The share is defined by the protocol.
 - Market creators do not control or modify fees after market creation.
@@ -313,6 +313,7 @@ Certain accounts may be fully exempt from:
 - winning fees.
 
 Fee exemptions are global and managed by the Owner.
+Implementations may key exemptions by `UserId` (resolved from address) as a storage optimization.
 Dust handling is unaffected by fee exemptions.
 
 ---

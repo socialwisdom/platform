@@ -207,7 +207,7 @@ SLOT 1 (COLD — immutable):
 
 - `protocolFees` (Points)
 - `creatorFees[creatorId]` (Points)
-- `feeExempt[address]` (bool)
+- `feeExempt[userId]` (bool)
 
 Fee balances are accounted separately from user trading balances.
 
@@ -545,12 +545,12 @@ Trading fees are charged **in addition** to the exchanged trade amounts (fees do
 
 ### 8.4 Accrual
 
-- `protocolFees` (Points)
-- `creatorFees[creatorId]` (Points)
+- `protocolFees` (Points) — accrued from trading fees
+- `creatorFees[creatorId]` (Points) — creator share of trading fees
 
 ### 8.5 Fee Exemptions
 
-- `feeExempt[address]` bypasses trading + winning fees.
+- `feeExempt[userId]` bypasses trading + winning fees (lookup via user registry).
 - dust handling is unaffected.
 
 ### 8.6 Dust

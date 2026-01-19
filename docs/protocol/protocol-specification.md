@@ -320,13 +320,13 @@ Winning fees are applied atomically at claim time.
 
 ### 5.4 Market Creator Incentives
 
-Market creators may receive a predefined share of the winning fee. They do not control fees after creation.
+Market creators may receive a predefined share of **trading fees**. They do not control fees after creation.
 
 ---
 
 ### 5.5 Fee Exemptions and Dust
 
-Fee exemptions apply globally and do not affect matching rules.
+Fee exemptions apply globally and do not affect matching rules. Implementation may key exemptions by `UserId` (resolved from address via the registry) as a storage optimization.
 
 Residual rounding amounts (“dust”) may arise during settlement and are accumulated by the protocol.
 
