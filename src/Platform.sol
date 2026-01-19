@@ -32,8 +32,9 @@ import {Markets} from "./core/Markets.sol";
 import {Fees} from "./core/Fees.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 
-contract Platform is IPlatform, Ownable, Pausable {
+contract Platform is IPlatform, Ownable, Pausable, ERC1155Holder {
     uint64 public constant RESOLVE_FINALIZE_DELAY = 1 hours;
     uint16 public constant MAX_CREATOR_FEE_BPS = 2_500; // 25%
 
