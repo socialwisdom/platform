@@ -229,6 +229,17 @@ interface IPlatform {
     /// @return creatorFeesPoints Amount credited to market creator.
     function sweepMarketFees(uint64 marketId) external returns (uint128 protocolFeesPoints, uint128 creatorFeesPoints);
 
+    // ==================== Pausing ====================
+
+    /// @notice Pause all state-changing actions.
+    function pause() external;
+
+    /// @notice Unpause all state-changing actions.
+    function unpause() external;
+
+    /// @notice Returns true if the protocol is paused.
+    function isPaused() external view returns (bool);
+
     // ==================== User Registry ====================
 
     /// @notice Get the userId for a given address, or 0 if not registered.

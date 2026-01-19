@@ -31,8 +31,9 @@ import {Accounting} from "./core/Accounting.sol";
 import {Markets} from "./core/Markets.sol";
 import {Fees} from "./core/Fees.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-contract Platform is IPlatform, Ownable {
+contract Platform is IPlatform, Ownable, Pausable {
     uint64 public constant RESOLVE_FINALIZE_DELAY = 1 hours;
     uint16 public constant MAX_CREATOR_FEE_BPS = 2_500; // 25%
 
@@ -54,7 +55,7 @@ contract Platform is IPlatform, Ownable {
         return s.userOfId[UserId.wrap(id)];
     }
 
-    function register() external returns (uint64 id) {
+    function register() external whenNotPaused returns (uint64 id) {
         PlatformStorage storage s = StorageSlot.layout();
         UserId uid = s.userIdOf[msg.sender];
         if (UserId.unwrap(uid) != 0) return UserId.unwrap(uid);
@@ -65,7 +66,7 @@ contract Platform is IPlatform, Ownable {
 
     // ==================== Points Deposits & Withdrawals ====================
 
-    function deposit(uint128 amount) external {
+    function deposit(uint128 amount) external whenNotPaused {
         if (amount == 0) revert InvalidInput();
 
         PlatformStorage storage s = StorageSlot.layout();
@@ -76,7 +77,7 @@ contract Platform is IPlatform, Ownable {
         emit PointsDeposited(UserId.unwrap(uid), msg.sender, amount);
     }
 
-    function withdraw(uint128 amount) external {
+    function withdraw(uint128 amount) external whenNotPaused {
         if (amount == 0) revert InvalidInput();
 
         PlatformStorage storage s = StorageSlot.layout();
@@ -91,7 +92,7 @@ contract Platform is IPlatform, Ownable {
 
     // ==================== Shares Deposits & Withdrawals ====================
 
-    function depositShares(uint64 marketId, uint8 outcomeId, uint128 amount) external {
+    function depositShares(uint64 marketId, uint8 outcomeId, uint128 amount) external whenNotPaused {
         if (amount == 0) revert InvalidInput();
 
         PlatformStorage storage s = StorageSlot.layout();
@@ -105,7 +106,7 @@ contract Platform is IPlatform, Ownable {
         emit SharesDeposited(UserId.unwrap(uid), marketId, outcomeId, amount);
     }
 
-    function withdrawShares(uint64 marketId, uint8 outcomeId, uint128 amount) external {
+    function withdrawShares(uint64 marketId, uint8 outcomeId, uint128 amount) external whenNotPaused {
         if (amount == 0) revert InvalidInput();
 
         PlatformStorage storage s = StorageSlot.layout();
@@ -125,6 +126,7 @@ contract Platform is IPlatform, Ownable {
 
     function placeLimit(uint64 marketId, uint8 outcomeId, uint8 side, uint8 limitTick, uint128 sharesRequested)
         external
+        whenNotPaused
         returns (uint32 orderId, uint128 filledShares, uint256 pointsTraded)
     {
         if (sharesRequested == 0) revert InvalidInput();
@@ -170,7 +172,7 @@ contract Platform is IPlatform, Ownable {
         uint8 limitTick,
         uint128 sharesRequested,
         uint128 minFill
-    ) external returns (uint128 filledShares, uint256 pointsTraded) {
+    ) external whenNotPaused returns (uint128 filledShares, uint256 pointsTraded) {
         if (sharesRequested == 0) revert InvalidInput();
         if (side > 1) revert InvalidInput();
         TickLib.check(Tick.wrap(limitTick));
@@ -214,6 +216,7 @@ contract Platform is IPlatform, Ownable {
 
     function cancel(uint64 marketId, uint8 outcomeId, uint8 side, uint32 orderId, uint32[] calldata prevCandidates)
         external
+        whenNotPaused
         returns (uint128 cancelledShares)
     {
         if (prevCandidates.length > 16) revert TooManyCancelCandidates();
@@ -257,7 +260,7 @@ contract Platform is IPlatform, Ownable {
         string calldata question,
         string[] calldata outcomeLabels,
         string calldata resolutionRules
-    ) external returns (uint64 marketId) {
+    ) external whenNotPaused returns (uint64 marketId) {
         PlatformStorage storage s = StorageSlot.layout();
 
         UserId creatorId = _getOrRegister(s, msg.sender);
@@ -297,7 +300,7 @@ contract Platform is IPlatform, Ownable {
         );
     }
 
-    function resolveMarket(uint64 marketId, uint8 winningOutcomeId) external {
+    function resolveMarket(uint64 marketId, uint8 winningOutcomeId) external whenNotPaused {
         PlatformStorage storage s = StorageSlot.layout();
         _requireMarketExistsAndOutcome(s, marketId, winningOutcomeId);
 
@@ -308,7 +311,7 @@ contract Platform is IPlatform, Ownable {
         emit MarketResolved(marketId, winningOutcomeId, uint64(block.timestamp));
     }
 
-    function finalizeMarket(uint64 marketId) external {
+    function finalizeMarket(uint64 marketId) external whenNotPaused {
         PlatformStorage storage s = StorageSlot.layout();
         _requireMarketExists(s, marketId);
 
@@ -419,7 +422,11 @@ contract Platform is IPlatform, Ownable {
         return s.marketCreator[uid];
     }
 
-    function sweepMarketFees(uint64 marketId) external returns (uint128 protocolFeesPoints, uint128 creatorFeesPoints) {
+    function sweepMarketFees(uint64 marketId)
+        external
+        whenNotPaused
+        returns (uint128 protocolFeesPoints, uint128 creatorFeesPoints)
+    {
         PlatformStorage storage s = StorageSlot.layout();
         _requireMarketExists(s, marketId);
 
@@ -532,18 +539,32 @@ contract Platform is IPlatform, Ownable {
 
     // ==================== Admin: Fee Exemptions ====================
 
-    function setFeeExempt(address account, bool isExempt) external onlyOwner {
+    function setFeeExempt(address account, bool isExempt) external onlyOwner whenNotPaused {
         PlatformStorage storage s = StorageSlot.layout();
         UserId uid = _getOrRegister(s, account);
         s.feeExempt[uid] = isExempt;
         emit FeeExemptionUpdated(account, isExempt);
     }
 
-    function setMarketCreator(address account, bool isCreator) external onlyOwner {
+    function setMarketCreator(address account, bool isCreator) external onlyOwner whenNotPaused {
         PlatformStorage storage s = StorageSlot.layout();
         UserId uid = _getOrRegister(s, account);
         s.marketCreator[uid] = isCreator;
         emit MarketCreatorUpdated(account, isCreator);
+    }
+
+    // ==================== Pausing ====================
+
+    function pause() external onlyOwner whenNotPaused {
+        _pause();
+    }
+
+    function unpause() external onlyOwner whenPaused {
+        _unpause();
+    }
+
+    function isPaused() external view returns (bool) {
+        return paused();
     }
 
     // ==================== Internal Helpers ====================
