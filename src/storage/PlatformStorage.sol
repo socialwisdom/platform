@@ -58,5 +58,8 @@ struct PlatformStorage {
 
     // Market creator allowlist (UserId => allowed)
     mapping(UserId => bool) marketCreator;
+
+    // --- Upgrade tracking ---
+    uint8 protocolVersion;
     // (Append new storage below this line in future iterations.)
 }

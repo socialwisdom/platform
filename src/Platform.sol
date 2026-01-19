@@ -30,18 +30,33 @@ import {Deposits} from "./core/Deposits.sol";
 import {Accounting} from "./core/Accounting.sol";
 import {Markets} from "./core/Markets.sol";
 import {Fees} from "./core/Fees.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 
-contract Platform is IPlatform, Ownable, Pausable, ERC1155Holder {
+contract Platform is IPlatform, Initializable, OwnableUpgradeable, PausableUpgradeable, UUPSUpgradeable, ERC1155Holder {
     uint64 public constant RESOLVE_FINALIZE_DELAY = 1 hours;
     uint16 public constant MAX_CREATOR_FEE_BPS = 2_500; // 25%
 
-    constructor() Ownable(msg.sender) {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address owner) external initializer {
+        __Ownable_init(owner);
+        __Pausable_init();
+
         PlatformStorage storage s = StorageSlot.layout();
-        UserId ownerId = _getOrRegister(s, msg.sender);
+        UserId ownerId = _getOrRegister(s, owner);
         s.marketCreator[ownerId] = true;
+        s.protocolVersion = 1;
+    }
+
+    function reinitializeV2() external reinitializer(2) onlyOwner {
+        PlatformStorage storage s = StorageSlot.layout();
+        s.protocolVersion = 2;
     }
 
     // ==================== User Registry ====================
@@ -569,6 +584,10 @@ contract Platform is IPlatform, Ownable, Pausable, ERC1155Holder {
     }
 
     // ==================== Internal Helpers ====================
+
+    function _authorizeUpgrade(address newImplementation) internal view override onlyOwner {
+        if (newImplementation == address(0)) revert InvalidInput();
+    }
 
     function _getOrRegister(PlatformStorage storage s, address user) internal returns (UserId) {
         UserId uid = s.userIdOf[user];

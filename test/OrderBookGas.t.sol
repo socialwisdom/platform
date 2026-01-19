@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {Platform} from "../src/Platform.sol";
 import {Side} from "../src/types/Enums.sol";
+import {DeployPlatform} from "./lib/DeployPlatform.sol";
 
 contract OrderBookGasTest is Test {
     Platform internal platform;
@@ -21,7 +22,7 @@ contract OrderBookGasTest is Test {
     uint128 internal constant SHARES = 1e6;
 
     function setUp() public {
-        platform = new Platform();
+        platform = DeployPlatform.deploy(address(this));
         _initMarket();
         _setupUsers();
     }
@@ -226,7 +227,7 @@ contract OrderBookGasTest is Test {
         emit log_named_uint("gas.cancel.middle.candidates.N2", used2);
 
         // Re-seed
-        platform = new Platform();
+        platform = DeployPlatform.deploy(address(this));
         _initMarket();
         _setupUsers();
         ids = _seedAsksAtTick(10, 60, 10 * SHARES);
@@ -240,7 +241,7 @@ contract OrderBookGasTest is Test {
         emit log_named_uint("gas.cancel.middle.candidates.N4", used4);
 
         // Re-seed again
-        platform = new Platform();
+        platform = DeployPlatform.deploy(address(this));
         _initMarket();
         _setupUsers();
         ids = _seedAsksAtTick(10, 60, 10 * SHARES);

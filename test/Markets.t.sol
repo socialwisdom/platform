@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Platform} from "../src/Platform.sol";
 import {IPlatform} from "../src/interfaces/IPlatform.sol";
 import {MarketState, Side} from "../src/types/Enums.sol";
+import {DeployPlatform} from "./lib/DeployPlatform.sol";
 import {
     MarketNotActive,
     MarketNotResolved,
@@ -26,7 +27,7 @@ contract MarketsTest is Test {
     uint128 internal constant SHARES = 1e6;
 
     function setUp() public {
-        platform = new Platform();
+        platform = DeployPlatform.deploy(address(this));
     }
 
     function _createMarket(address marketResolver, uint64 expirationAt, bool allowEarlyResolve)

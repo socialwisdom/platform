@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Platform} from "../src/Platform.sol";
 import {IPlatform} from "../src/interfaces/IPlatform.sol";
 import {Side} from "../src/types/Enums.sol";
+import {DeployPlatform} from "./lib/DeployPlatform.sol";
 
 contract AccountingTest is Test {
     Platform internal platform;
@@ -22,7 +23,7 @@ contract AccountingTest is Test {
     uint16 internal constant TAKER_FEE_BPS = 30; // 0.30%
 
     function setUp() public {
-        platform = new Platform();
+        platform = DeployPlatform.deploy(address(this));
 
         string[] memory labels = new string[](2);
         labels[0] = "Yes";
