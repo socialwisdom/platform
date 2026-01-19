@@ -7,8 +7,11 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 library DeployPlatform {
     function deploy(address owner) internal returns (Platform) {
         Platform impl = new Platform();
+
         bytes memory data = abi.encodeCall(Platform.initialize, (owner));
+
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), data);
+
         return Platform(address(proxy));
     }
 }

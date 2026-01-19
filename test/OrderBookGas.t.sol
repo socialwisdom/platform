@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {Platform} from "../src/Platform.sol";
 import {Side} from "../src/types/Enums.sol";
-import {DeployPlatform} from "./lib/DeployPlatform.sol";
+import {DeployPlatform} from "../script/lib/DeployPlatform.sol";
 
 contract OrderBookGasTest is Test {
     Platform internal platform;

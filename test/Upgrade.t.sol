@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Platform} from "../src/Platform.sol";
 import {StorageSlot} from "../src/storage/StorageSlot.sol";
 import {PlatformStorage} from "../src/storage/PlatformStorage.sol";
-import {DeployPlatform} from "./lib/DeployPlatform.sol";
+import {DeployPlatform} from "../script/lib/DeployPlatform.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 

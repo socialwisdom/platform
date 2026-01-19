@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Platform} from "../src/Platform.sol";
 import {IPlatform} from "../src/interfaces/IPlatform.sol";
 import {MarketState, Side} from "../src/types/Enums.sol";
-import {DeployPlatform} from "./lib/DeployPlatform.sol";
+import {DeployPlatform} from "../script/lib/DeployPlatform.sol";
 import {
     MarketNotActive,
     MarketNotResolved,

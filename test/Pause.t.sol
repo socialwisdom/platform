@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {Platform} from "../src/Platform.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {DeployPlatform} from "./lib/DeployPlatform.sol";
+import {DeployPlatform} from "../script/lib/DeployPlatform.sol";
 
 contract PauseTest is Test {
     Platform internal platform;
