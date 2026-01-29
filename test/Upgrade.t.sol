@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {Platform} from "../src/Platform.sol";
-import {StorageSlot} from "../src/storage/StorageSlot.sol";
 import {PlatformStorage} from "../src/storage/PlatformStorage.sol";
 import {DeployPlatform} from "../script/lib/DeployPlatform.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
@@ -11,7 +10,7 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 
 contract PlatformV2 is Platform {
     function getProtocolVersion() external view returns (uint8) {
-        PlatformStorage storage s = StorageSlot.layout();
+        PlatformStorage.Layout storage s = PlatformStorage.layout();
         return s.protocolVersion;
     }
 }

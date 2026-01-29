@@ -31,21 +31,32 @@ Core protocol logic. Platform is responsible for:
 - order book state and matching,
 - Points and shares accounting (free/reserved),
 - fee calculation and accrual,
-- resolution and settlement,
-- custody enforcement and claims.
+- resolution lifecycle (finalization) and fee settlement,
+- custody enforcement (deposits/withdrawals).
+
+External entrypoints are implemented as thin wrappers in `Platform.sol` and delegate to
+domain-specific internal modules in `src/modules`:
+- `PlatformMarkets`
+- `PlatformTrading`
+- `PlatformAccounting`
+- `PlatformCustody`
+- `PlatformAdmin`
+
+Domain interfaces are split into `IMarkets`, `ITrading`, `IAccounting`, `ICustody`, `IAdmin`,
+and aggregated by `IPlatform`.
 
 All protocol state is stored in Platform storage (via proxy).
 
-#### PlatformProxy
+#### PlatformProxy (UUPS)
 
-Upgradeable proxy delegating execution to the Platform implementation.
+Upgradeable proxy delegating execution to the Platform implementation using a UUPS pattern.
 
 PlatformProxy:
 - holds all persistent storage,
 - forwards calls to the Platform logic contract,
 - enables upgrades without migrating state.
 
-Uses a standard transparent proxy pattern.
+Upgrade authorization is enforced by the Platform implementation via UUPS hooks.
 
 #### CTFAdapter
 
@@ -58,7 +69,7 @@ CTFAdapter:
 
 ### 1.2 Responsibilities and Boundaries
 
-- **Platform** is the sole source of truth and enforcer of all rules.
+- **Platform** is the sole source of truth and enforcer of all rules (with domain modules for separation of concerns).
 - **PlatformProxy** only delegates and supports upgrades.
 - **CTFAdapter** only gates redemption while preserving CTF semantics.
 
@@ -97,11 +108,13 @@ All state is stored in Platform storage (behind the proxy). The layout is optimi
 ### 2.1 Global Configuration
 
 Stored in Platform storage:
-- **defaultCollateral**: initial backing asset for Points (fixed at deployment for v1).
-- **global fee configuration**: defaults used where applicable; markets may override.
-- **protocolFees**: Points-denominated fee balance held by Platform.
+- **protocolFeesPoints**: Points-denominated fee balance held by Platform.
+- **protocolDustPoints**: Points-denominated dust accumulator.
 - **pause state**: OpenZeppelin `Pausable`.
 - **roles**: Market Creator role allowlist and fee exemption mapping.
+- **protocolVersion**: upgrade tracking for reinitializers.
+
+There is no global fee configuration; all trading fees are configured per market.
 
 These values must remain layout-compatible across upgrades.
 
@@ -365,7 +378,7 @@ Resolution supersedes expiration.
 - **Active**: place/match/cancel enabled.
 - **Expired**: place/match disabled; cancel enabled.
 - **Resolved (Pending)**: place/match disabled; cancel enabled; claims disabled; resolver may update outcome.
-- **Resolved (Final)**: trading disabled; cancel enabled; claims enabled.
+- **Resolved (Final)**: trading disabled; cancel enabled; claims enabled (claim entrypoint is not yet implemented in the current contract).
 
 ### 4.6 Transitions and Callers
 
@@ -380,9 +393,9 @@ Deposits/withdrawals are protocol-level and independent of market state (unless 
 
 ### 5.1 Supported Collateral
 
-- v1 uses a configured `defaultCollateral` address.
-- deposits accepted only for supported assets.
-- all balances are denominated in Points regardless of deposit asset.
+- Current implementation mocks collateral transfers; there is no on-chain `defaultCollateral` config yet.
+- Deposits/withdrawals operate on internal Points balances and are intended to be wired to real assets later.
+- All balances are denominated in Points regardless of deposit asset.
 
 ### 5.2 Deposits
 
@@ -568,8 +581,7 @@ Exposed view categories:
 - order book (masks, levels, orders),
 - cancellation helper views (candidate predecessors),
 - fee balances (protocol and creator),
-- fee exemption status,
-- per-user nonces.
+- fee exemption status.
 
 Views remain callable regardless of market state (unless explicitly restricted).
 
@@ -778,7 +790,8 @@ Emitted after fee exemption state changes.
 
 ## 11. Meta-Transactions
 
-Meta-transactions add signature-based entry points without changing protocol semantics.
+Meta-transactions are planned but **not implemented** in the current contract.
+No signature-based entry points or per-user nonces are present yet.
 
 ### 11.1 Principle
 
@@ -814,7 +827,7 @@ Both direct and signature entry points call the same internal functions, passing
 Uses OZ `Pausable`.
 
 When paused:
-- all state-changing operations are disabled (deposits, withdrawals, trading, cancellation, claims, market creation, resolution/finalization),
+- all state-changing operations are disabled (deposits, withdrawals, trading, cancellation, market creation, resolution/finalization),
 - views remain available.
 
 Pausing never moves funds or changes balances.

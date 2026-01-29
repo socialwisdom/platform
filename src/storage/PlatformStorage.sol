@@ -17,49 +17,75 @@ import {BookState, Level, Order, PointsBalance, SharesBalance, Market} from "../
 /// KEY DERIVATIONS (defined in src/encoding/Keys.sol later):
 /// - levelKey = (uint256(bookKey) << 8) | uint8(tick)
 /// - orderKey = (uint256(bookKey) << 32) | uint32(orderId)
-struct PlatformStorage {
-    // — Per-book aggregate state —
-    mapping(BookKey => BookState) books;
+library PlatformStorage {
+    // Namespace this to your project. Changing this breaks storage compatibility.
+    bytes32 internal constant SLOT = keccak256("socialwisdom.storage.v1");
 
-    // --- Per-(book,tick) level state ---
-    mapping(uint256 => Level) levels;
+    /// @notice Canonical storage layout (append-only).
+    /// Append-only: when adding new subsystems later, ONLY append new fields/sections.
+    /// If you fully understand the storage layout and upgrade implications, you may intentionally bypass this.
+    ///
+    /// GLOBAL INVARIANTS (high-level):
+    /// - books[bookKey].nextOrderId is monotonically increasing per book (start at 1; 0 reserved as "null").
+    /// - books[bookKey].bidsMask/asksMask: bit i set <=> tick(i+1) level is non-empty (tick=1 -> bit0).
+    /// - levels[levelKey].totalShares == sum(orders.sharesRemaining) for all orders in that level.
+    /// - FIFO per tick via next-only linked list (orders[orderKey].nextOrderId).
+    ///
+    /// KEY DERIVATIONS (defined in src/encoding/Keys.sol later):
+    /// - levelKey = (uint256(bookKey) << 8) | uint8(tick)
+    /// - orderKey = (uint256(bookKey) << 32) | uint32(orderId)
+    struct Layout {
+        // — Per-book aggregate state —
+        mapping(BookKey => BookState) books;
 
-    // --- Per-(book,orderId) order nodes ---
-    mapping(uint256 => Order) orders;
+        // --- Per-(book,tick) level state ---
+        mapping(uint256 => Level) levels;
 
-    // --- User registry (orderbook phase) ---
-    mapping(address => UserId) userIdOf; // UserId(0) = unregistered
-    mapping(UserId => address) userOfId;
-    UserId nextUserId; // starts at 1
+        // --- Per-(book,orderId) order nodes ---
+        mapping(uint256 => Order) orders;
 
-    // --- Points accounting (per user) ---
-    // Tracks free and reserved Points for each user
-    mapping(UserId => PointsBalance) pointsBalances;
+        // --- User registry (orderbook phase) ---
+        mapping(address => UserId) userIdOf; // UserId(0) = unregistered
+        mapping(UserId => address) userOfId;
+        UserId nextUserId; // starts at 1
 
-    // --- Shares accounting (per user per book) ---
-    // Tracks free and reserved shares for each user in each order book
-    mapping(UserId => mapping(BookKey => SharesBalance)) sharesBalances;
+        // --- Points accounting (per user) ---
+        // Tracks free and reserved Points for each user
+        mapping(UserId => PointsBalance) pointsBalances;
 
-    // --- Markets ---
-    uint64 nextMarketId; // starts at 1
-    mapping(uint64 => Market) markets;
+        // --- Shares accounting (per user per book) ---
+        // Tracks free and reserved shares for each user in each order book
+        mapping(UserId => mapping(BookKey => SharesBalance)) sharesBalances;
 
-    // --- Fees and Dust ---
-    // Global dust counter (Points)
-    uint128 protocolDustPoints;
+        // --- Markets ---
+        uint64 nextMarketId; // starts at 1
+        mapping(uint64 => Market) markets;
 
-    // Global protocol fees counter (Points)
-    uint128 protocolFeesPoints;
+        // --- Fees and Dust ---
+        // Global dust counter (Points)
+        uint128 protocolDustPoints;
 
-    // --- Roles & Permissions ---
+        // Global protocol fees counter (Points)
+        uint128 protocolFeesPoints;
 
-    // Fee exemption mapping (UserId => exempt)
-    mapping(UserId => bool) feeExempt;
+        // --- Roles & Permissions ---
 
-    // Market creator allowlist (UserId => allowed)
-    mapping(UserId => bool) marketCreator;
+        // Fee exemption mapping (UserId => exempt)
+        mapping(UserId => bool) feeExempt;
 
-    // --- Upgrade tracking ---
-    uint8 protocolVersion;
-    // (Append new storage below this line in future iterations.)
+        // Market creator allowlist (UserId => allowed)
+        mapping(UserId => bool) marketCreator;
+
+        // --- Upgrade tracking ---
+        uint8 protocolVersion;
+        // (Append new storage below this line in future iterations.)
+    }
+
+    /// @notice Returns a pointer to the canonical storage layout.
+    function layout() internal pure returns (Layout storage st) {
+        bytes32 slot = SLOT;
+        assembly {
+            st.slot := slot
+        }
+    }
 }

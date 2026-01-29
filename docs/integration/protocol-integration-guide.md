@@ -30,10 +30,14 @@ At a high level, integration follows this pattern:
 2. Register / resolve user identity.
 3. Read markets and their state.
 4. Read order books and balances.
-5. Submit transactions (trading, claims, admin if applicable).
+5. Submit transactions (trading, admin if applicable; claims are planned but not yet implemented).
 6. Track events to stay in sync.
 
 The protocol is fully on-chain and deterministic.
+
+The external interface is split by domain:
+- `IMarkets`, `ITrading`, `IAccounting`, `ICustody`, `IAdmin`
+and aggregated by `IPlatform`.
 There is no off-chain coordination layer required for correctness.
 
 ## 2. User Identity (UserId)
@@ -117,8 +121,11 @@ Always show both in UI.
 Outcome shares are tracked per:
 - market,
 - outcome,
-- side (Ask/Bid via BookKey),
 - user.
+
+Implementation note:
+- shares balances are keyed by the Ask-side BookKey for the (market, outcome),
+- Bid-side BookKeys are only for order books and are not used for share balances.
 
 Frontends typically show:
 - total shares per outcome,
@@ -244,21 +251,14 @@ Resolution is tracked via events:
 - `MarketResolved` - outcome selected (pending),
 - `MarketFinalized` - outcome final.
 
-Only after finalization can claims be executed.
+Only after finalization can claims be executed (claim entrypoint is not yet implemented in the current contract).
 
 ---
 
 ### 8.2 Claims Flow
 
-Typical claim UX:
-
-1. Detect market is **Resolved (Final)**.
-2. Detect user holds winning shares.
-3. Submit `claim`.
-4. Track `Claimed` event.
-5. Update Points balance.
-
-Claims are deterministic and atomic.
+Claim UX is planned but not yet available on-chain.
+Frontends should treat claims as unavailable until a claim entrypoint is introduced.
 
 ## 9. Deposits and Withdrawals
 
@@ -299,16 +299,7 @@ Views define canonical state.
 
 ## 11. Meta-Transactions (Optional)
 
-If using meta-transactions:
-
-- resolve `userId` for signer,
-- fetch current nonce,
-- construct EIP-712 payload,
-- submit signed call via relayer.
-
-From a UX perspective:
-- behavior is identical to direct calls,
-- gas is paid by relayer.
+Meta-transactions are planned but not yet implemented in the current contract.
 
 ## 12. Integration Invariants
 

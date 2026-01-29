@@ -27,7 +27,7 @@ library LevelQueue {
     ///   - tick == tick
     ///   - nextOrderId == 0
     /// - sharesDelta is the order’s initial sharesRemaining to add to level.totalShares.
-    function append(PlatformStorage storage s, BookKey bookKey, Tick tick, OrderId orderId, uint128 sharesDelta)
+    function append(PlatformStorage.Layout storage s, BookKey bookKey, Tick tick, OrderId orderId, uint128 sharesDelta)
         internal
     {
         uint256 lk = Keys.levelKey(bookKey, tick);
@@ -52,7 +52,9 @@ library LevelQueue {
 
     /// @notice Decreases level totalShares by filledShares (hot-path on every fill).
     /// REQUIRES: filledShares <= lvl.totalShares.
-    function decTotalShares(PlatformStorage storage s, BookKey bookKey, Tick tick, uint128 filledShares) internal {
+    function decTotalShares(PlatformStorage.Layout storage s, BookKey bookKey, Tick tick, uint128 filledShares)
+        internal
+    {
         uint256 lk = Keys.levelKey(bookKey, tick);
         Level storage lvl = s.levels[lk];
         lvl.totalShares -= filledShares;
@@ -64,7 +66,7 @@ library LevelQueue {
     /// REQUIRES:
     /// - Caller has already set the head order's sharesRemaining to 0.
     /// - Level is non-empty.
-    function popHeadIfFilled(PlatformStorage storage s, BookKey bookKey, Tick tick)
+    function popHeadIfFilled(PlatformStorage.Layout storage s, BookKey bookKey, Tick tick)
         internal
         returns (OrderId poppedOrderId, bool levelEmpty)
     {
@@ -97,13 +99,13 @@ library LevelQueue {
     }
 
     /// @notice Reads current head order id for (bookKey,tick). Returns 0 if empty.
-    function headOrderId(PlatformStorage storage s, BookKey bookKey, Tick tick) internal view returns (OrderId) {
+    function headOrderId(PlatformStorage.Layout storage s, BookKey bookKey, Tick tick) internal view returns (OrderId) {
         uint256 lk = Keys.levelKey(bookKey, tick);
         return OrderId.wrap(s.levels[lk].headOrderId);
     }
 
     /// @notice Reads current totalShares for (bookKey,tick).
-    function totalShares(PlatformStorage storage s, BookKey bookKey, Tick tick) internal view returns (uint128) {
+    function totalShares(PlatformStorage.Layout storage s, BookKey bookKey, Tick tick) internal view returns (uint128) {
         uint256 lk = Keys.levelKey(bookKey, tick);
         return s.levels[lk].totalShares;
     }

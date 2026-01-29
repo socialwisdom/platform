@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {Platform} from "../src/Platform.sol";
-import {IPlatform} from "../src/interfaces/IPlatform.sol";
+import {IMarkets} from "../src/interfaces/IMarkets.sol";
 import {MarketState, Side} from "../src/types/Enums.sol";
 import {DeployPlatform} from "../script/lib/DeployPlatform.sol";
 import {
@@ -49,7 +49,7 @@ contract MarketsTest is Test {
         labels[1] = "No";
 
         vm.expectEmit(true, true, true, true);
-        emit IPlatform.MarketCreated(1, 1, 2, 0, true, 0, bytes32(0), bytes32(0), "Q", labels, "Rules");
+        emit IMarkets.MarketCreated(1, 1, 2, 0, true, 0, bytes32(0), bytes32(0), "Q", labels, "Rules");
 
         uint64 first =
             platform.createMarket(resolver, 2, 0, true, 0, 0, 0, bytes32(0), bytes32(0), "Q", labels, "Rules");

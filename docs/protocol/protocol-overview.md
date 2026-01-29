@@ -107,8 +107,9 @@ An accounting balance locked to collateralize open orders or active positions an
 
 **Market Creator**:
 
-A user who creates and publishes a market by defining all its parameters, including outcomes, fees, and resolver.
-Market creators do not receive special protocol permissions. They may receive a predefined share of fees as an economic incentive.
+A user authorized to create and publish a market by defining all its parameters, including outcomes, fees, and resolver.
+Market creators have **only** the permission to create markets (via an allowlist in early stages) and receive no other special protocol permissions.
+They may receive a predefined share of fees as an economic incentive.
 
 **Resolver**:
 
@@ -258,7 +259,7 @@ At each phase, trading behavior and available actions are explicitly defined.
 - Trading remains disabled.
 - Order cancellation remains allowed.
 
-#### 4. Resolved (Ready)
+#### 4. Resolved (Final)
 
 - Resolution is final.
 - Winning shares may be redeemed via claim.
@@ -276,7 +277,8 @@ Trading fees are charged in Points at trade execution.
 For each trade:
 - the traded amount is exchanged in full between counterparties,
 - trading fees are charged **in addition to** the traded amount,
-- fees are deducted from the users' free balances.
+- fees are reserved upfront with the principal and then charged only on executed volume,
+- any unused fee reservation is released back to free balance.
 
 This ensures that users receive or sell the full intended trade amount, preserving intuitive UX.
 

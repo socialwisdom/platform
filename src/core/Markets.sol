@@ -16,7 +16,7 @@ import {
 
 library Markets {
     function createMarket(
-        PlatformStorage storage s,
+        PlatformStorage.Layout storage s,
         UserId creatorId,
         UserId resolverId,
         uint8 outcomesCount,
@@ -50,7 +50,7 @@ library Markets {
         // resolved/finalized/winningOutcomeId default to zero values
     }
 
-    function resolveMarket(PlatformStorage storage s, uint64 marketId, uint8 winningOutcomeId) internal {
+    function resolveMarket(PlatformStorage.Layout storage s, uint64 marketId, uint8 winningOutcomeId) internal {
         Market storage m = s.markets[marketId];
 
         if (m.finalized) revert MarketAlreadyFinalized(marketId);
@@ -65,7 +65,7 @@ library Markets {
         m.resolvedAt = uint64(block.timestamp);
     }
 
-    function finalizeMarket(PlatformStorage storage s, uint64 marketId, uint64 finalizeDelay) internal {
+    function finalizeMarket(PlatformStorage.Layout storage s, uint64 marketId, uint64 finalizeDelay) internal {
         Market storage m = s.markets[marketId];
 
         if (!m.resolved) revert MarketNotResolved(marketId);
@@ -84,7 +84,7 @@ library Markets {
         return MarketState.Active;
     }
 
-    function exists(PlatformStorage storage s, uint64 marketId) internal view returns (bool) {
+    function exists(PlatformStorage.Layout storage s, uint64 marketId) internal view returns (bool) {
         return marketId != 0 && marketId < s.nextMarketId;
     }
 }

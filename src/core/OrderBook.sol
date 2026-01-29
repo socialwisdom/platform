@@ -20,7 +20,7 @@ library OrderBook {
 
     // TODO: fix book key usage
     function placeLimit(
-        PlatformStorage storage s,
+        PlatformStorage.Layout storage s,
         UserId userId,
         BookKey takerBookKey,
         Tick limitTick,
@@ -50,9 +50,13 @@ library OrderBook {
 
     /// @notice Appends a limit order remainder to the book.
     /// @dev Must be called only after matching, and only if sharesRemaining > 0.
-    function restLimit(PlatformStorage storage s, BookKey bookKey, Tick tick, OrderId orderId, uint128 sharesRemaining)
-        internal
-    {
+    function restLimit(
+        PlatformStorage.Layout storage s,
+        BookKey bookKey,
+        Tick tick,
+        OrderId orderId,
+        uint128 sharesRemaining
+    ) internal {
         if (sharesRemaining == 0) return;
 
         LevelQueue.append(s, bookKey, tick, orderId, sharesRemaining);
@@ -72,7 +76,7 @@ library OrderBook {
 
     // TODO: check cancellation status and/or update it
     function cancel(
-        PlatformStorage storage s,
+        PlatformStorage.Layout storage s,
         UserId userId,
         BookKey bookKey,
         OrderId orderId,
@@ -122,7 +126,7 @@ library OrderBook {
     }
 
     function _findPrevCandidate(
-        PlatformStorage storage s,
+        PlatformStorage.Layout storage s,
         BookKey bookKey,
         OrderId orderId,
         uint32[] calldata prevCandidates
@@ -147,7 +151,7 @@ library OrderBook {
     /// @dev Unlinks a non-head node using its prevId and cached next pointer.
     /// Returns true iff the level became empty after removing remaining shares.
     function _unlinkNonHead(
-        PlatformStorage storage s,
+        PlatformStorage.Layout storage s,
         BookKey bookKey,
         Tick tick,
         OrderId orderId,
@@ -185,11 +189,12 @@ library OrderBook {
     // view helper: collect N predecessors ("ancestors")
     // -----------------------------
 
-    function collectPrevCandidates(PlatformStorage storage s, BookKey bookKey, OrderId targetOrderId, uint256 maxN)
-        internal
-        view
-        returns (OrderId[] memory out)
-    {
+    function collectPrevCandidates(
+        PlatformStorage.Layout storage s,
+        BookKey bookKey,
+        OrderId targetOrderId,
+        uint256 maxN
+    ) internal view returns (OrderId[] memory out) {
         if (maxN == 0) return new OrderId[](0);
         if (maxN > CANCEL_CANDIDATES_CAP) maxN = CANCEL_CANDIDATES_CAP;
 
@@ -236,7 +241,9 @@ library OrderBook {
         return new OrderId[](0);
     }
 
-    function _maybeClearMaskIfEmpty(PlatformStorage storage s, BookKey bookKey, Tick tick, bool emptied) private {
+    function _maybeClearMaskIfEmpty(PlatformStorage.Layout storage s, BookKey bookKey, Tick tick, bool emptied)
+        private
+    {
         if (!emptied) return;
 
         BookState storage book = s.books[bookKey];

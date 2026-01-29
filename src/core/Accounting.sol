@@ -28,7 +28,7 @@ library Accounting {
     /// @param userId User to query.
     /// @return free Available Points.
     /// @return reserved Locked Points.
-    function getPointsBalance(PlatformStorage storage s, UserId userId)
+    function getPointsBalance(PlatformStorage.Layout storage s, UserId userId)
         internal
         view
         returns (uint128 free, uint128 reserved)
@@ -41,7 +41,7 @@ library Accounting {
     /// @param s Storage reference.
     /// @param userId User to query.
     /// @return Total Points balance.
-    function getTotalPoints(PlatformStorage storage s, UserId userId) internal view returns (uint256) {
+    function getTotalPoints(PlatformStorage.Layout storage s, UserId userId) internal view returns (uint256) {
         PointsBalance storage balance = s.pointsBalances[userId];
         return uint256(balance.free) + uint256(balance.reserved);
     }
@@ -50,7 +50,7 @@ library Accounting {
     /// @param s Storage reference.
     /// @param userId User to credit.
     /// @param amount Points to add.
-    function addFreePoints(PlatformStorage storage s, UserId userId, uint128 amount) internal {
+    function addFreePoints(PlatformStorage.Layout storage s, UserId userId, uint128 amount) internal {
         PointsBalance storage balance = s.pointsBalances[userId];
         uint128 currentFree = balance.free;
         balance.free = currentFree + amount;
@@ -61,7 +61,7 @@ library Accounting {
     /// @param s Storage reference.
     /// @param userId User to debit.
     /// @param amount Points to remove.
-    function removeFreePoints(PlatformStorage storage s, UserId userId, uint128 amount) internal {
+    function removeFreePoints(PlatformStorage.Layout storage s, UserId userId, uint128 amount) internal {
         PointsBalance storage balance = s.pointsBalances[userId];
         if (balance.free < amount) {
             revert InsufficientFreePoints(balance.free, amount);
@@ -74,7 +74,7 @@ library Accounting {
     /// @param s Storage reference.
     /// @param userId User to reserve from.
     /// @param amount Points to reserve.
-    function reservePoints(PlatformStorage storage s, UserId userId, uint128 amount) internal {
+    function reservePoints(PlatformStorage.Layout storage s, UserId userId, uint128 amount) internal {
         PointsBalance storage balance = s.pointsBalances[userId];
         if (balance.free < amount) {
             revert InsufficientFreePoints(balance.free, amount);
@@ -88,7 +88,7 @@ library Accounting {
     /// @param s Storage reference.
     /// @param userId User to release to.
     /// @param amount Points to release.
-    function releasePoints(PlatformStorage storage s, UserId userId, uint128 amount) internal {
+    function releasePoints(PlatformStorage.Layout storage s, UserId userId, uint128 amount) internal {
         PointsBalance storage balance = s.pointsBalances[userId];
         if (balance.reserved < amount) {
             revert InsufficientReservedPoints(balance.reserved, amount);
@@ -102,7 +102,7 @@ library Accounting {
     /// @param s Storage reference.
     /// @param userId User to consume from.
     /// @param amount Points to consume.
-    function consumeReservedPoints(PlatformStorage storage s, UserId userId, uint128 amount) internal {
+    function consumeReservedPoints(PlatformStorage.Layout storage s, UserId userId, uint128 amount) internal {
         PointsBalance storage balance = s.pointsBalances[userId];
         if (balance.reserved < amount) {
             revert InsufficientReservedPoints(balance.reserved, amount);
@@ -120,7 +120,7 @@ library Accounting {
     /// @param bookKey Book identifier.
     /// @return free Available shares.
     /// @return reserved Locked shares.
-    function getSharesBalance(PlatformStorage storage s, UserId userId, BookKey bookKey)
+    function getSharesBalance(PlatformStorage.Layout storage s, UserId userId, BookKey bookKey)
         internal
         view
         returns (uint128 free, uint128 reserved)
@@ -134,7 +134,11 @@ library Accounting {
     /// @param userId User to query.
     /// @param bookKey Book identifier.
     /// @return Total shares balance.
-    function getTotalShares(PlatformStorage storage s, UserId userId, BookKey bookKey) internal view returns (uint256) {
+    function getTotalShares(PlatformStorage.Layout storage s, UserId userId, BookKey bookKey)
+        internal
+        view
+        returns (uint256)
+    {
         SharesBalance storage balance = s.sharesBalances[userId][bookKey];
         return uint256(balance.free) + uint256(balance.reserved);
     }
@@ -144,7 +148,7 @@ library Accounting {
     /// @param userId User to credit.
     /// @param bookKey Book identifier.
     /// @param amount Shares to add.
-    function addFreeShares(PlatformStorage storage s, UserId userId, BookKey bookKey, uint128 amount) internal {
+    function addFreeShares(PlatformStorage.Layout storage s, UserId userId, BookKey bookKey, uint128 amount) internal {
         SharesBalance storage balance = s.sharesBalances[userId][bookKey];
         balance.free += amount;
     }
@@ -155,7 +159,9 @@ library Accounting {
     /// @param userId User to debit.
     /// @param bookKey Book identifier.
     /// @param amount Shares to remove.
-    function removeFreeShares(PlatformStorage storage s, UserId userId, BookKey bookKey, uint128 amount) internal {
+    function removeFreeShares(PlatformStorage.Layout storage s, UserId userId, BookKey bookKey, uint128 amount)
+        internal
+    {
         SharesBalance storage balance = s.sharesBalances[userId][bookKey];
         if (balance.free < amount) {
             revert InsufficientFreeShares(balance.free, amount);
@@ -169,7 +175,7 @@ library Accounting {
     /// @param userId User to reserve from.
     /// @param bookKey Book identifier.
     /// @param amount Shares to reserve.
-    function reserveShares(PlatformStorage storage s, UserId userId, BookKey bookKey, uint128 amount) internal {
+    function reserveShares(PlatformStorage.Layout storage s, UserId userId, BookKey bookKey, uint128 amount) internal {
         SharesBalance storage balance = s.sharesBalances[userId][bookKey];
         if (balance.free < amount) {
             revert InsufficientFreeShares(balance.free, amount);
@@ -184,7 +190,7 @@ library Accounting {
     /// @param userId User to release to.
     /// @param bookKey Book identifier.
     /// @param amount Shares to release.
-    function releaseShares(PlatformStorage storage s, UserId userId, BookKey bookKey, uint128 amount) internal {
+    function releaseShares(PlatformStorage.Layout storage s, UserId userId, BookKey bookKey, uint128 amount) internal {
         SharesBalance storage balance = s.sharesBalances[userId][bookKey];
         if (balance.reserved < amount) {
             revert InsufficientReservedShares(balance.reserved, amount);
@@ -199,7 +205,9 @@ library Accounting {
     /// @param userId User to consume from.
     /// @param bookKey Book identifier.
     /// @param amount Shares to consume.
-    function consumeReservedShares(PlatformStorage storage s, UserId userId, BookKey bookKey, uint128 amount) internal {
+    function consumeReservedShares(PlatformStorage.Layout storage s, UserId userId, BookKey bookKey, uint128 amount)
+        internal
+    {
         SharesBalance storage balance = s.sharesBalances[userId][bookKey];
         if (balance.reserved < amount) {
             revert InsufficientReservedShares(balance.reserved, amount);

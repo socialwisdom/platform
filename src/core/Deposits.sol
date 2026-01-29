@@ -28,10 +28,9 @@ library Deposits {
     /// - mint equivalent Points internally
     /// - Platform emits PointsDeposited event
     ///
-    /// @param s Storage reference.
     /// @param userId User ID (must be registered or caller will register).
     /// @param amount Points to deposit.
-    function doDeposit(PlatformStorage storage s, UserId userId, uint128 amount) internal {
+    function doDeposit(PlatformStorage.Layout storage s, UserId userId, uint128 amount) internal {
         // TODO: add actual IERC20 transfer
 
         // Credit user's free Points balance
@@ -59,10 +58,9 @@ library Deposits {
     /// - transfer equivalent token to user
     /// - Platform emits PointsWithdrawn event
     ///
-    /// @param s Storage reference.
     /// @param userId User ID.
     /// @param amount Points to withdraw.
-    function doWithdraw(PlatformStorage storage s, UserId userId, uint128 amount) internal {
+    function doWithdraw(PlatformStorage.Layout storage s, UserId userId, uint128 amount) internal {
         // Check sufficient free balance
         Accounting.removeFreePoints(s, userId, amount);
 
@@ -76,7 +74,9 @@ library Deposits {
     // ─────────────────────────────────────────────────────────────────────────
 
     // TODO: doc me
-    function doSharesDeposit(PlatformStorage storage s, UserId userId, BookKey bookKey, uint128 amount) internal {
+    function doSharesDeposit(PlatformStorage.Layout storage s, UserId userId, BookKey bookKey, uint128 amount)
+        internal
+    {
         // TODO: add actual IERC1155 transfer
 
         // Credit user's free Shares balance
@@ -90,7 +90,9 @@ library Deposits {
     // ─────────────────────────────────────────────────────────────────────────
 
     // TODO: doc me
-    function doSharesWithdraw(PlatformStorage storage s, UserId userId, BookKey bookKey, uint128 amount) internal {
+    function doSharesWithdraw(PlatformStorage.Layout storage s, UserId userId, BookKey bookKey, uint128 amount)
+        internal
+    {
         // TODO: add actual IERC1155 transfer
 
         // Credit user's free Shares balance

@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {Platform} from "../src/Platform.sol";
-import {IPlatform} from "../src/interfaces/IPlatform.sol";
+import {ITrading} from "../src/interfaces/ITrading.sol";
 import {Side} from "../src/types/Enums.sol";
 import {DeployPlatform} from "../script/lib/DeployPlatform.sol";
 
@@ -341,7 +341,7 @@ contract AccountingTest is Test {
         (uint32 makerOrderId,,) = platform.placeLimit(MARKET, OUTCOME, uint8(Side.Ask), 50, shares);
 
         vm.expectEmit(true, true, true, true);
-        emit IPlatform.Trade(
+        emit ITrading.Trade(
             MARKET, 2, 3, OUTCOME, uint8(Side.Ask), makerOrderId, 0, 50, shares, sellerGross, makerFee, takerFee
         );
 
@@ -417,7 +417,7 @@ contract AccountingTest is Test {
         (uint32 makerOrderId,,) = platform.placeLimit(MARKET, OUTCOME, uint8(Side.Ask), 50, shares);
 
         vm.expectEmit(true, true, true, true);
-        emit IPlatform.Trade(
+        emit ITrading.Trade(
             MARKET, 2, 3, OUTCOME, uint8(Side.Ask), makerOrderId, 0, 50, shares, _sellerGross(shares, 50), 0, 0
         );
 
@@ -443,7 +443,7 @@ contract AccountingTest is Test {
         uint128 dust = buyerPaid - sellerGross;
 
         vm.expectEmit(true, true, true, true);
-        emit IPlatform.Trade(MARKET, 2, 3, OUTCOME, uint8(Side.Ask), makerOrderId, 0, tick, shares, sellerGross, 0, 0);
+        emit ITrading.Trade(MARKET, 2, 3, OUTCOME, uint8(Side.Ask), makerOrderId, 0, tick, shares, sellerGross, 0, 0);
 
         vm.prank(bob);
         platform.take(MARKET, OUTCOME, uint8(Side.Bid), tick, shares, shares);
@@ -498,7 +498,7 @@ contract AccountingTest is Test {
         (uint32 makerOrderId,,) = platform.placeLimit(marketId, OUTCOME, uint8(Side.Ask), tick, shares);
 
         vm.expectEmit(true, true, true, true);
-        emit IPlatform.Trade(
+        emit ITrading.Trade(
             marketId, 2, 3, OUTCOME, uint8(Side.Ask), makerOrderId, 0, tick, shares, _sellerGross(shares, tick), 0, 0
         );
 

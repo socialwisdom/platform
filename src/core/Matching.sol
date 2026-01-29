@@ -23,7 +23,7 @@ library Matching {
     /// Caller is responsible for managing the loop and emitting Trade events.
     /// Assumes all inputs are valid (checked by Platform).
     function matchOneStep(
-        PlatformStorage storage s,
+        PlatformStorage.Layout storage s,
         BookKey makerBookKey,
         Side makerSide,
         OrderId takerOrderId,
@@ -49,7 +49,7 @@ library Matching {
     }
 
     function _fillLevel(
-        PlatformStorage storage s,
+        PlatformStorage.Layout storage s,
         BookKey makerBookKey,
         Side makerSide,
         Tick tick,
