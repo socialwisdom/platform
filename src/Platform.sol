@@ -2,7 +2,6 @@
 pragma solidity ^0.8.30;
 
 import {IPlatform} from "./interfaces/IPlatform.sol";
-import {ITradingView} from "./interfaces/ITradingView.sol";
 
 import {PlatformStorage} from "./storage/PlatformStorage.sol";
 import {UserId, BookKey, Tick} from "./types/IdTypes.sol";
@@ -40,7 +39,6 @@ contract Platform is
 {
     uint64 public constant RESOLVE_FINALIZE_DELAY = 1 hours;
     uint16 public constant MAX_CREATOR_FEE_BPS = 2_500; // 25%
-    bytes4 internal constant TRADING_VIEW_FALLBACK_SELECTOR = bytes4(keccak256("TRADING_VIEW_FALLBACK"));
 
     constructor() {
         _disableInitializers();
@@ -303,92 +301,6 @@ contract Platform is
         return _cancel(uid, marketId, outcomeId, side, orderId, prevCandidates);
     }
 
-    // ==================== ITradingView ====================
-
-    // ==================== Read API ====================
-
-    function getCancelCandidates(uint64 marketId, uint8 outcomeId, uint8 side, uint32 targetOrderId, uint256 maxN)
-        external
-        view
-        returns (uint32[] memory)
-    {
-        if (side > 1) revert InvalidInput();
-        bytes memory result = _staticcallTradingView(
-            abi.encodeCall(ITradingView.getCancelCandidates, (marketId, outcomeId, side, targetOrderId, maxN))
-        );
-        return abi.decode(result, (uint32[]));
-    }
-
-    function getOrderRemainingAndRequested(uint64 marketId, uint8 outcomeId, uint8 side, uint32 orderId)
-        external
-        view
-        returns (uint128 remaining, uint128 requested)
-    {
-        if (side > 1) revert InvalidInput();
-        bytes memory result = _staticcallTradingView(
-            abi.encodeCall(ITradingView.getOrderRemainingAndRequested, (marketId, outcomeId, side, orderId))
-        );
-        return abi.decode(result, (uint128, uint128));
-    }
-
-    function getBookMask(uint64 marketId, uint8 outcomeId, uint8 side) external view returns (uint128 mask) {
-        if (side > 1) revert InvalidInput();
-        bytes memory result =
-            _staticcallTradingView(abi.encodeCall(ITradingView.getBookMask, (marketId, outcomeId, side)));
-        return abi.decode(result, (uint128));
-    }
-
-    function getLevel(uint64 marketId, uint8 outcomeId, uint8 side, uint8 tick)
-        external
-        view
-        returns (uint32 headOrderId, uint32 tailOrderId, uint128 totalShares)
-    {
-        if (side > 1) revert InvalidInput();
-        TickLib.check(Tick.wrap(tick));
-        bytes memory result =
-            _staticcallTradingView(abi.encodeCall(ITradingView.getLevel, (marketId, outcomeId, side, tick)));
-        return abi.decode(result, (uint32, uint32, uint128));
-    }
-
-    function getBookLevels(uint64 marketId, uint8 outcomeId, uint8 side)
-        external
-        view
-        returns (uint8[] memory ticks, uint128[] memory totalShares)
-    {
-        if (side > 1) revert InvalidInput();
-        bytes memory result =
-            _staticcallTradingView(abi.encodeCall(ITradingView.getBookLevels, (marketId, outcomeId, side)));
-        return abi.decode(result, (uint8[], uint128[]));
-    }
-
-    function getMarketBookLevels(uint64 marketId)
-        external
-        view
-        returns (
-            uint8 outcomesCount,
-            uint8[][] memory bidTicks,
-            uint128[][] memory bidTotalShares,
-            uint8[][] memory askTicks,
-            uint128[][] memory askTotalShares
-        )
-    {
-        bytes memory result = _staticcallTradingView(abi.encodeCall(ITradingView.getMarketBookLevels, (marketId)));
-        return abi.decode(result, (uint8, uint8[][], uint128[][], uint8[][], uint128[][]));
-    }
-
-    function getOrder(uint64 marketId, uint8 outcomeId, uint8 side, uint32 orderId)
-        external
-        view
-        returns (uint64 ownerId, uint32 nextOrderId, uint8 tick, uint128 sharesRemaining, uint128 requestedShares)
-    {
-        if (side > 1) {
-            revert InvalidInput();
-        }
-        bytes memory result =
-            _staticcallTradingView(abi.encodeCall(ITradingView.getOrder, (marketId, outcomeId, side, orderId)));
-        return abi.decode(result, (uint64, uint32, uint8, uint128, uint128));
-    }
-
     // ==================== Internal Helpers ====================
 
     function _setTradingViewModule(address module) internal {
@@ -401,19 +313,7 @@ contract Platform is
         return PlatformStorage.layout().tradingViewModule;
     }
 
-    function _staticcallTradingView(bytes memory data) internal view returns (bytes memory result) {
-        bytes memory payload = abi.encodePacked(TRADING_VIEW_FALLBACK_SELECTOR, data);
-        (bool success, bytes memory out) = address(this).staticcall(payload);
-        if (!success) {
-            assembly {
-                revert(add(out, 0x20), mload(out))
-            }
-        }
-        return out;
-    }
-
     fallback() external {
-        if (msg.sig != TRADING_VIEW_FALLBACK_SELECTOR) revert InvalidInput();
         _delegateTradingViewFallback();
     }
 
@@ -423,10 +323,10 @@ contract Platform is
 
         assembly {
             let ptr := mload(0x40)
-            let dataLen := sub(calldatasize(), 4)
+            let dataLen := calldatasize()
             let dataPtr := add(ptr, 0x20)
 
-            calldatacopy(dataPtr, 4, dataLen)
+            calldatacopy(dataPtr, 0, dataLen)
 
             let success := delegatecall(gas(), impl, dataPtr, dataLen, 0, 0)
             let size := returndatasize()

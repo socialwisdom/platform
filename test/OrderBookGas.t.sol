@@ -4,11 +4,13 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 
 import {Platform} from "../src/Platform.sol";
+import {ITradingView} from "../src/interfaces/ITradingView.sol";
 import {Side} from "../src/types/Enums.sol";
 import {DeployPlatform} from "../script/lib/DeployPlatform.sol";
 
 contract OrderBookGasTest is Test {
     Platform internal platform;
+    ITradingView internal tradingView;
 
     address internal alice = address(0xA11CE);
     address internal bob = address(0xB0B);
@@ -23,6 +25,7 @@ contract OrderBookGasTest is Test {
 
     function setUp() public {
         platform = DeployPlatform.deploy(address(this));
+        tradingView = ITradingView(address(platform));
         _initMarket();
         _setupUsers();
     }
@@ -98,7 +101,8 @@ contract OrderBookGasTest is Test {
     {
         uint256 len = makerIds.length;
         for (uint256 i = 0; i < len; i++) {
-            (uint128 rem, uint128 req) = platform.getOrderRemainingAndRequested(MARKET, OUTCOME, makerSide, makerIds[i]);
+            (uint128 rem, uint128 req) =
+                tradingView.getOrderRemainingAndRequested(MARKET, OUTCOME, makerSide, makerIds[i]);
 
             // if req==0 it was never created (shouldn't happen in these tests), ignore
             if (req == 0) continue;
@@ -203,7 +207,7 @@ contract OrderBookGasTest is Test {
 
         uint32 target = ids[14];
 
-        uint32[] memory candidates = platform.getCancelCandidates(MARKET, OUTCOME, uint8(Side.Ask), target, 8);
+        uint32[] memory candidates = tradingView.getCancelCandidates(MARKET, OUTCOME, uint8(Side.Ask), target, 8);
         assertTrue(candidates.length > 0);
 
         uint256 g0 = gasleft();
@@ -219,7 +223,7 @@ contract OrderBookGasTest is Test {
         uint32[] memory ids = _seedAsksAtTick(10, 60, 10 * SHARES);
         uint32 target = ids[40];
 
-        uint32[] memory c2 = platform.getCancelCandidates(MARKET, OUTCOME, uint8(Side.Ask), target, 2);
+        uint32[] memory c2 = tradingView.getCancelCandidates(MARKET, OUTCOME, uint8(Side.Ask), target, 2);
         uint256 g0 = gasleft();
         vm.prank(alice);
         platform.cancel(MARKET, OUTCOME, uint8(Side.Ask), target, c2);
@@ -228,12 +232,13 @@ contract OrderBookGasTest is Test {
 
         // Re-seed
         platform = DeployPlatform.deploy(address(this));
+        tradingView = ITradingView(address(platform));
         _initMarket();
         _setupUsers();
         ids = _seedAsksAtTick(10, 60, 10 * SHARES);
         target = ids[40];
 
-        uint32[] memory c4 = platform.getCancelCandidates(MARKET, OUTCOME, uint8(Side.Ask), target, 4);
+        uint32[] memory c4 = tradingView.getCancelCandidates(MARKET, OUTCOME, uint8(Side.Ask), target, 4);
         g0 = gasleft();
         vm.prank(alice);
         platform.cancel(MARKET, OUTCOME, uint8(Side.Ask), target, c4);
@@ -242,12 +247,13 @@ contract OrderBookGasTest is Test {
 
         // Re-seed again
         platform = DeployPlatform.deploy(address(this));
+        tradingView = ITradingView(address(platform));
         _initMarket();
         _setupUsers();
         ids = _seedAsksAtTick(10, 60, 10 * SHARES);
         target = ids[40];
 
-        uint32[] memory c16 = platform.getCancelCandidates(MARKET, OUTCOME, uint8(Side.Ask), target, 16);
+        uint32[] memory c16 = tradingView.getCancelCandidates(MARKET, OUTCOME, uint8(Side.Ask), target, 16);
         g0 = gasleft();
         vm.prank(alice);
         platform.cancel(MARKET, OUTCOME, uint8(Side.Ask), target, c16);

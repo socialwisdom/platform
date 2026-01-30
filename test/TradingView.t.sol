@@ -4,11 +4,13 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 
 import {Platform} from "../src/Platform.sol";
+import {ITradingView} from "../src/interfaces/ITradingView.sol";
 import {Side} from "../src/types/Enums.sol";
 import {DeployPlatform} from "../script/lib/DeployPlatform.sol";
 
 contract TradingViewTest is Test {
     Platform internal platform;
+    ITradingView internal tradingView;
 
     address internal alice = address(0xA11CE);
     address internal bob = address(0xB0B);
@@ -20,6 +22,7 @@ contract TradingViewTest is Test {
 
     function setUp() public {
         platform = DeployPlatform.deploy(address(this));
+        tradingView = ITradingView(address(platform));
         marketId = _createMarket();
         _setupUser(alice);
         _setupUser(bob);
@@ -82,8 +85,10 @@ contract TradingViewTest is Test {
         // Outcome 2 has no orders
 
         // Per-book views
-        (uint8[] memory o0AskTicks, uint128[] memory o0AskTotals) = platform.getBookLevels(marketId, 0, uint8(Side.Ask));
-        (uint8[] memory o0BidTicks, uint128[] memory o0BidTotals) = platform.getBookLevels(marketId, 0, uint8(Side.Bid));
+        (uint8[] memory o0AskTicks, uint128[] memory o0AskTotals) =
+            tradingView.getBookLevels(marketId, 0, uint8(Side.Ask));
+        (uint8[] memory o0BidTicks, uint128[] memory o0BidTotals) =
+            tradingView.getBookLevels(marketId, 0, uint8(Side.Bid));
 
         uint8[] memory expO0AskTicks = new uint8[](2);
         expO0AskTicks[0] = 60;
@@ -102,8 +107,10 @@ contract TradingViewTest is Test {
         _assertBook(o0AskTicks, o0AskTotals, expO0AskTicks, expO0AskTotals);
         _assertBook(o0BidTicks, o0BidTotals, expO0BidTicks, expO0BidTotals);
 
-        (uint8[] memory o1AskTicks, uint128[] memory o1AskTotals) = platform.getBookLevels(marketId, 1, uint8(Side.Ask));
-        (uint8[] memory o1BidTicks, uint128[] memory o1BidTotals) = platform.getBookLevels(marketId, 1, uint8(Side.Bid));
+        (uint8[] memory o1AskTicks, uint128[] memory o1AskTotals) =
+            tradingView.getBookLevels(marketId, 1, uint8(Side.Ask));
+        (uint8[] memory o1BidTicks, uint128[] memory o1BidTotals) =
+            tradingView.getBookLevels(marketId, 1, uint8(Side.Bid));
 
         uint8[] memory expO1AskTicks = new uint8[](1);
         expO1AskTicks[0] = 55;
@@ -118,8 +125,10 @@ contract TradingViewTest is Test {
         _assertBook(o1AskTicks, o1AskTotals, expO1AskTicks, expO1AskTotals);
         _assertBook(o1BidTicks, o1BidTotals, expO1BidTicks, expO1BidTotals);
 
-        (uint8[] memory o2AskTicks, uint128[] memory o2AskTotals) = platform.getBookLevels(marketId, 2, uint8(Side.Ask));
-        (uint8[] memory o2BidTicks, uint128[] memory o2BidTotals) = platform.getBookLevels(marketId, 2, uint8(Side.Bid));
+        (uint8[] memory o2AskTicks, uint128[] memory o2AskTotals) =
+            tradingView.getBookLevels(marketId, 2, uint8(Side.Ask));
+        (uint8[] memory o2BidTicks, uint128[] memory o2BidTotals) =
+            tradingView.getBookLevels(marketId, 2, uint8(Side.Bid));
 
         assertEq(o2AskTicks.length, 0);
         assertEq(o2AskTotals.length, 0);
@@ -133,7 +142,7 @@ contract TradingViewTest is Test {
             uint128[][] memory bidTotals,
             uint8[][] memory askTicks,
             uint128[][] memory askTotals
-        ) = platform.getMarketBookLevels(marketId);
+        ) = tradingView.getMarketBookLevels(marketId);
 
         assertEq(outcomesCount, 3);
         assertEq(bidTicks.length, 3);

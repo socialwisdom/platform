@@ -2,6 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {ITradingView} from "../interfaces/ITradingView.sol";
+import {InvalidInput} from "../types/Errors.sol";
+import {Tick} from "../types/IdTypes.sol";
+import {TickLib} from "../encoding/TickLib.sol";
 
 import {PlatformTradingView} from "./PlatformTradingView.sol";
 
@@ -14,6 +17,7 @@ contract PlatformTradingViewModule is ITradingView, PlatformTradingView {
         view
         returns (uint32[] memory)
     {
+        if (side > 1) revert InvalidInput();
         return _getCancelCandidates(marketId, outcomeId, side, targetOrderId, maxN);
     }
 
@@ -22,10 +26,12 @@ contract PlatformTradingViewModule is ITradingView, PlatformTradingView {
         view
         returns (uint128 remaining, uint128 requested)
     {
+        if (side > 1) revert InvalidInput();
         return _getOrderRemainingAndRequested(marketId, outcomeId, side, orderId);
     }
 
     function getBookMask(uint64 marketId, uint8 outcomeId, uint8 side) external view returns (uint128 mask) {
+        if (side > 1) revert InvalidInput();
         return _getBookMask(marketId, outcomeId, side);
     }
 
@@ -34,6 +40,8 @@ contract PlatformTradingViewModule is ITradingView, PlatformTradingView {
         view
         returns (uint32 headOrderId, uint32 tailOrderId, uint128 totalShares)
     {
+        if (side > 1) revert InvalidInput();
+        TickLib.check(Tick.wrap(tick));
         return _getLevel(marketId, outcomeId, side, tick);
     }
 
@@ -42,6 +50,7 @@ contract PlatformTradingViewModule is ITradingView, PlatformTradingView {
         view
         returns (uint8[] memory ticks, uint128[] memory totalShares)
     {
+        if (side > 1) revert InvalidInput();
         return _getBookLevels(marketId, outcomeId, side);
     }
 
@@ -64,6 +73,9 @@ contract PlatformTradingViewModule is ITradingView, PlatformTradingView {
         view
         returns (uint64 ownerId, uint32 nextOrderId, uint8 tick, uint128 sharesRemaining, uint128 requestedShares)
     {
+        if (side > 1) {
+            revert InvalidInput();
+        }
         return _getOrder(marketId, outcomeId, side, orderId);
     }
 }
