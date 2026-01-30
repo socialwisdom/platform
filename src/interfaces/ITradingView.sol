@@ -52,6 +52,37 @@ interface ITradingView {
         view
         returns (uint32 headOrderId, uint32 tailOrderId, uint128 totalShares);
 
+    /// @notice Get the full book as ordered ticks and total shares at each level.
+    /// @dev For asks: ticks are ascending (best ask first). For bids: ticks are descending (best bid first).
+    /// @param marketId The market.
+    /// @param outcomeId The outcome index.
+    /// @param side The book side.
+    /// @return ticks Ordered list of non-empty ticks.
+    /// @return totalShares Total shares at each corresponding tick.
+    function getBookLevels(uint64 marketId, uint8 outcomeId, uint8 side)
+        external
+        view
+        returns (uint8[] memory ticks, uint128[] memory totalShares);
+
+    /// @notice Get full books for all outcomes in a market.
+    /// @dev For asks: ticks are ascending (best ask first). For bids: ticks are descending (best bid first).
+    /// @param marketId The market.
+    /// @return outcomesCount Number of outcomes in the market.
+    /// @return bidTicks Per-outcome bid ticks (ordered).
+    /// @return bidTotalShares Per-outcome bid total shares aligned with bidTicks.
+    /// @return askTicks Per-outcome ask ticks (ordered).
+    /// @return askTotalShares Per-outcome ask total shares aligned with askTicks.
+    function getMarketBookLevels(uint64 marketId)
+        external
+        view
+        returns (
+            uint8 outcomesCount,
+            uint8[][] memory bidTicks,
+            uint128[][] memory bidTotalShares,
+            uint8[][] memory askTicks,
+            uint128[][] memory askTotalShares
+        );
+
     /// @notice Get a full order node for traversal and indexing.
     /// @param marketId The market.
     /// @param outcomeId The outcome index.

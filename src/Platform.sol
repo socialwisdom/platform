@@ -350,6 +350,32 @@ contract Platform is
         return abi.decode(result, (uint32, uint32, uint128));
     }
 
+    function getBookLevels(uint64 marketId, uint8 outcomeId, uint8 side)
+        external
+        view
+        returns (uint8[] memory ticks, uint128[] memory totalShares)
+    {
+        if (side > 1) revert InvalidInput();
+        bytes memory result =
+            _staticcallTradingView(abi.encodeCall(ITradingView.getBookLevels, (marketId, outcomeId, side)));
+        return abi.decode(result, (uint8[], uint128[]));
+    }
+
+    function getMarketBookLevels(uint64 marketId)
+        external
+        view
+        returns (
+            uint8 outcomesCount,
+            uint8[][] memory bidTicks,
+            uint128[][] memory bidTotalShares,
+            uint8[][] memory askTicks,
+            uint128[][] memory askTotalShares
+        )
+    {
+        bytes memory result = _staticcallTradingView(abi.encodeCall(ITradingView.getMarketBookLevels, (marketId)));
+        return abi.decode(result, (uint8, uint8[][], uint128[][], uint8[][], uint128[][]));
+    }
+
     function getOrder(uint64 marketId, uint8 outcomeId, uint8 side, uint32 orderId)
         external
         view

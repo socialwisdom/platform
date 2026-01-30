@@ -8,6 +8,7 @@ import {Side} from "../types/Enums.sol";
 
 import {BookKeyLib} from "../encoding/BookKeyLib.sol";
 import {Keys} from "../encoding/Keys.sol";
+import {Masks} from "../encoding/Masks.sol";
 
 import {OrderBook} from "../core/OrderBook.sol";
 
@@ -66,6 +67,73 @@ abstract contract PlatformTradingView {
 
         Level storage lvl = s.levels[Keys.levelKey(bookKey, Tick.wrap(tick))];
         return (lvl.headOrderId, lvl.tailOrderId, lvl.totalShares);
+    }
+
+    function _getBookLevels(uint64 marketId, uint8 outcomeId, uint8 side)
+        internal
+        view
+        returns (uint8[] memory ticks, uint128[] memory totalShares)
+    {
+        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
+        PlatformStorage.Layout storage s = PlatformStorage.layout();
+
+        uint128 mask = Side(side) == Side.Bid ? s.books[bookKey].bidsMask : s.books[bookKey].asksMask;
+        if (mask == 0) return (new uint8[](0), new uint128[](0));
+
+        uint128 m = mask;
+        uint256 count = 0;
+        while (m != 0) {
+            m &= (m - 1);
+            count++;
+        }
+
+        ticks = new uint8[](count);
+        totalShares = new uint128[](count);
+
+        m = mask;
+        for (uint256 i = 0; i < count; i++) {
+            Tick tick = Side(side) == Side.Bid ? Masks.bestBid(m) : Masks.bestAsk(m);
+            ticks[i] = Tick.unwrap(tick);
+
+            Level storage lvl = s.levels[Keys.levelKey(bookKey, tick)];
+            totalShares[i] = lvl.totalShares;
+
+            m = Masks.clear(m, tick);
+        }
+    }
+
+    function _getMarketBookLevels(uint64 marketId)
+        internal
+        view
+        returns (
+            uint8 outcomesCount,
+            uint8[][] memory bidTicks,
+            uint128[][] memory bidTotalShares,
+            uint8[][] memory askTicks,
+            uint128[][] memory askTotalShares
+        )
+    {
+        PlatformStorage.Layout storage s = PlatformStorage.layout();
+        outcomesCount = s.markets[marketId].outcomesCount;
+
+        if (outcomesCount == 0) {
+            return (0, new uint8[][](0), new uint128[][](0), new uint8[][](0), new uint128[][](0));
+        }
+
+        bidTicks = new uint8[][](outcomesCount);
+        bidTotalShares = new uint128[][](outcomesCount);
+        askTicks = new uint8[][](outcomesCount);
+        askTotalShares = new uint128[][](outcomesCount);
+
+        for (uint8 outcomeId = 0; outcomeId < outcomesCount; outcomeId++) {
+            (uint8[] memory _bt, uint128[] memory _bs) = _getBookLevels(marketId, outcomeId, uint8(Side.Bid));
+            (uint8[] memory _at, uint128[] memory _as) = _getBookLevels(marketId, outcomeId, uint8(Side.Ask));
+
+            bidTicks[outcomeId] = _bt;
+            bidTotalShares[outcomeId] = _bs;
+            askTicks[outcomeId] = _at;
+            askTotalShares[outcomeId] = _as;
+        }
     }
 
     function _getOrder(uint64 marketId, uint8 outcomeId, uint8 side, uint32 orderId)
