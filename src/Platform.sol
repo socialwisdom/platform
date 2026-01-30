@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IPlatform} from "./interfaces/IPlatform.sol";
+import {IMarkets} from "./interfaces/IMarkets.sol";
 
 import {PlatformStorage} from "./storage/PlatformStorage.sol";
 import {UserId, BookKey, Tick} from "./types/IdTypes.sol";
@@ -19,7 +20,7 @@ import {PlatformMarkets} from "./modules/PlatformMarkets.sol";
 import {PlatformTrading} from "./modules/PlatformTrading.sol";
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
@@ -27,7 +28,7 @@ import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155
 contract Platform is
     IPlatform,
     Initializable,
-    OwnableUpgradeable,
+    AccessControlUpgradeable,
     PausableUpgradeable,
     UUPSUpgradeable,
     ERC1155Holder,
@@ -45,12 +46,11 @@ contract Platform is
     }
 
     function initialize(address owner, address tradingViewModule) external initializer {
-        UserId ownerId = _getOrRegister(owner);
-        _initializeOwner(owner, ownerId);
+        _initializeOwner(owner);
         _setTradingViewModule(tradingViewModule);
     }
 
-    function reinitializeV2() external reinitializer(2) onlyOwner {
+    function reinitializeV2() external reinitializer(2) onlyRole(DEFAULT_ADMIN_ROLE) {
         _reinitializeV2();
     }
 
@@ -69,7 +69,6 @@ contract Platform is
     {
         return _sweepMarketFees(marketId);
     }
-
     // ==================== Read API ====================
 
     function userIdOf(address user) external view returns (uint64) {
@@ -115,17 +114,29 @@ contract Platform is
 
     // ==================== Write API ====================
 
-    function setFeeExempt(address account, bool isExempt) external onlyOwner whenNotPaused {
+    function setFeeExempt(address account, bool isExempt) external onlyRole(DEFAULT_ADMIN_ROLE) whenNotPaused {
         UserId uid = _getOrRegister(account);
         _setFeeExempt(uid, account, isExempt);
     }
 
-    function pause() external onlyOwner whenNotPaused {
+    function pause() external onlyRole(PAUSER_ROLE) whenNotPaused {
         _pauseProtocol();
     }
 
-    function unpause() external onlyOwner whenPaused {
+    function unpause() external onlyRole(PAUSER_ROLE) whenPaused {
         _unpauseProtocol();
+    }
+
+    function grantRole(bytes32 role, address account) public override(AccessControlUpgradeable) whenNotPaused {
+        super.grantRole(role, account);
+    }
+
+    function revokeRole(bytes32 role, address account) public override(AccessControlUpgradeable) whenNotPaused {
+        super.revokeRole(role, account);
+    }
+
+    function renounceRole(bytes32 role, address account) public override(AccessControlUpgradeable) whenNotPaused {
+        super.renounceRole(role, account);
     }
 
     // ==================== Read API ====================
@@ -186,7 +197,7 @@ contract Platform is
         string calldata question,
         string[] calldata outcomeLabels,
         string calldata resolutionRules
-    ) external whenNotPaused returns (uint64 marketId) {
+    ) external whenNotPaused onlyRole(MARKET_CREATOR_ROLE) returns (uint64 marketId) {
         UserId creatorId = _getOrRegister(msg.sender);
         UserId resolverId = _getOrRegister(resolver);
         return _createMarket(
@@ -216,9 +227,14 @@ contract Platform is
         _finalizeMarket(marketId, RESOLVE_FINALIZE_DELAY, resolverId);
     }
 
-    function setMarketCreator(address account, bool isCreator) external onlyOwner whenNotPaused {
-        UserId uid = _getOrRegister(account);
-        _setMarketCreator(account, uid, isCreator);
+    function setMarketCreator(address account, bool isCreator) external onlyRole(DEFAULT_ADMIN_ROLE) whenNotPaused {
+        _getOrRegister(account);
+        if (isCreator) {
+            _grantRole(MARKET_CREATOR_ROLE, account);
+        } else {
+            _revokeRole(MARKET_CREATOR_ROLE, account);
+        }
+        emit IMarkets.MarketCreatorUpdated(account, isCreator);
     }
 
     // ==================== Read API ====================
@@ -252,8 +268,7 @@ contract Platform is
     function isMarketCreator(address account) external view returns (bool) {
         UserId uid = UserId.wrap(_userIdOf(account));
         if (UserId.unwrap(uid) == 0) return false;
-        PlatformStorage.Layout storage s = PlatformStorage.layout();
-        return s.marketCreator[uid];
+        return hasRole(MARKET_CREATOR_ROLE, account);
     }
 
     // ==================== ITrading ====================
@@ -345,12 +360,20 @@ contract Platform is
         }
     }
 
-    function _authorizeUpgrade(address newImplementation) internal view override onlyOwner {
+    function _authorizeUpgrade(address newImplementation) internal view override onlyRole(UPGRADER_ROLE) {
         _authorizeUpgradeImpl(newImplementation);
     }
 
-    function _ownableInit(address owner) internal override {
-        __Ownable_init(owner);
+    function _accessControlInit() internal override {
+        __AccessControl_init();
+    }
+
+    function _grantRoleInternal(bytes32 role, address account) internal override {
+        _grantRole(role, account);
+    }
+
+    function _revokeRoleInternal(bytes32 role, address account) internal override {
+        _revokeRole(role, account);
     }
 
     function _pausableInit() internal override {
@@ -367,5 +390,14 @@ contract Platform is
 
     function _pausedInternal() internal view override returns (bool) {
         return paused();
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(AccessControlUpgradeable, ERC1155Holder)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 }

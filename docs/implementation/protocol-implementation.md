@@ -111,7 +111,7 @@ Stored in Platform storage:
 - **protocolFeesPoints**: Points-denominated fee balance held by Platform.
 - **protocolDustPoints**: Points-denominated dust accumulator.
 - **pause state**: OpenZeppelin `Pausable`.
-- **roles**: Market Creator role allowlist and fee exemption mapping.
+- **roles**: AccessControl roles (MARKET_CREATOR_ROLE, PAUSER_ROLE, UPGRADER_ROLE) and fee exemption mapping.
 - **protocolVersion**: upgrade tracking for reinitializers.
 
 There is no global fee configuration; all trading fees are configured per market.
@@ -832,19 +832,21 @@ When paused:
 
 Pausing never moves funds or changes balances.
 
-### 12.2 Owner Powers
+### 12.2 Admin Roles
 
-Owner may:
-- pause/unpause,
-- manage fee exemptions,
-- manage Market Creator role,
-- upgrade Platform logic via proxy.
+Admin (DEFAULT_ADMIN_ROLE) may:
+- manage protocol roles (including `MARKET_CREATOR_ROLE`).
 
-Owner cannot:
+Operational roles:
+- `PAUSER_ROLE` — pause/unpause,
+- `UPGRADER_ROLE` — upgrade Platform logic via proxy,
+- `MARKET_CREATOR_ROLE` — authorize market creation.
+
+Admins and role holders cannot:
 - move user funds,
 - resolve/finalize markets,
 - modify market parameters post-creation.
 
 ### 12.3 Upgrades
 
-Upgrades are executed by Owner via proxy mechanisms and must preserve storage compatibility and economic meaning.
+Upgrades are executed by `UPGRADER_ROLE` via proxy mechanisms and must preserve storage compatibility and economic meaning.

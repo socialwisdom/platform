@@ -115,9 +115,13 @@ They may receive a predefined share of fees as an economic incentive.
 
 The authority responsible for selecting and finalizing the winning outcome of a market.
 
-**Owner**:
+**Admin (DEFAULT_ADMIN_ROLE)**:
 
-An entity with protocol-level control, including emergency actions, fee exemptions, and upgrades to protocol logic via a proxy mechanism.
+An entity with protocol-level control via AccessControl, including emergency actions, fee exemptions, and upgrades to protocol logic via a proxy mechanism.
+Role separation is enforced via:
+- `PAUSER_ROLE` — pause/unpause,
+- `UPGRADER_ROLE` — upgrades,
+- `MARKET_CREATOR_ROLE` — market creation authorization.
 
 ---
 
@@ -134,7 +138,7 @@ A fee charged when redeeming winning shares during claim.
 **Fee-Exempt Account**:
 
 An account exempt from all protocol fees, including trading and winning fees.
-Fee exemptions are managed by the Owner.
+Fee exemptions are managed by the Admin (DEFAULT_ADMIN_ROLE).
 
 **Dust**:
 
@@ -314,7 +318,7 @@ Certain accounts may be fully exempt from:
 - trading fees,
 - winning fees.
 
-Fee exemptions are global and managed by the Owner.
+Fee exemptions are global and managed by the Admin (DEFAULT_ADMIN_ROLE) via `FEE_EXEMPT_ROLE`.
 Implementations may key exemptions by `UserId` (resolved from address) as a storage optimization.
 Dust handling is unaffected by fee exemptions.
 
@@ -402,13 +406,16 @@ Once payouts are enabled:
 
 ## 9. Roles and Permissions
 
-### 9.1 Owner
+### 9.1 Admin (DEFAULT_ADMIN_ROLE)
 
-- emergency pause control,
-- protocol logic upgrades via proxy,
-- management of fee exemptions,
+- manages protocol roles,
 - no access to user funds,
 - no control over market outcomes.
+
+Operational permissions are delegated to:
+- `PAUSER_ROLE` — emergency pause control,
+- `UPGRADER_ROLE` — protocol logic upgrades via proxy,
+- `MARKET_CREATOR_ROLE` — market creation authorization.
 
 ---
 

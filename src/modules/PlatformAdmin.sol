@@ -5,10 +5,17 @@ import {IAdmin} from "../interfaces/IAdmin.sol";
 import {PlatformStorage} from "../storage/PlatformStorage.sol";
 import {UserId} from "../types/IdTypes.sol";
 import {InvalidInput} from "../types/Errors.sol";
+import {PlatformRoles} from "../types/Roles.sol";
 
 /// @notice Internal admin helpers and role views.
-abstract contract PlatformAdmin {
-    function _ownableInit(address owner) internal virtual;
+abstract contract PlatformAdmin is PlatformRoles {
+    bytes32 private constant _DEFAULT_ADMIN_ROLE = 0x00;
+
+    function _accessControlInit() internal virtual;
+
+    function _grantRoleInternal(bytes32 role, address account) internal virtual;
+
+    function _revokeRoleInternal(bytes32 role, address account) internal virtual;
 
     function _pausableInit() internal virtual;
 
@@ -42,12 +49,16 @@ abstract contract PlatformAdmin {
         return _pausedInternal();
     }
 
-    function _initializeOwner(address owner, UserId ownerId) internal {
-        _ownableInit(owner);
+    function _initializeOwner(address owner) internal {
+        _accessControlInit();
         _pausableInit();
 
+        _grantRoleInternal(_DEFAULT_ADMIN_ROLE, owner);
+        _grantRoleInternal(PAUSER_ROLE, owner);
+        _grantRoleInternal(UPGRADER_ROLE, owner);
+        _grantRoleInternal(MARKET_CREATOR_ROLE, owner);
+
         PlatformStorage.Layout storage s = PlatformStorage.layout();
-        s.marketCreator[ownerId] = true;
         s.protocolVersion = 1;
     }
 

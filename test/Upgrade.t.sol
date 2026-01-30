@@ -7,7 +7,7 @@ import {PlatformStorage} from "../src/storage/PlatformStorage.sol";
 import {PlatformTradingViewModule} from "../src/modules/PlatformTradingViewModule.sol";
 import {DeployPlatform} from "../script/lib/DeployPlatform.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 contract PlatformV2 is Platform {
     function getProtocolVersion() external view returns (uint8) {
@@ -35,8 +35,12 @@ contract UpgradeTest is Test {
     function test_UpgradeAndReinitialize() public {
         PlatformV2 implV2 = new PlatformV2();
 
+        bytes32 upgraderRole = platform.UPGRADER_ROLE();
+
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, alice));
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, alice, upgraderRole)
+        );
         platform.upgradeToAndCall(address(implV2), abi.encodeCall(Platform.reinitializeV2, ()));
 
         platform.upgradeToAndCall(address(implV2), abi.encodeCall(Platform.reinitializeV2, ()));

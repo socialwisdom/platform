@@ -35,7 +35,7 @@ The proxy contract:
 
 - owns all protocol storage,
 - delegates calls to the active implementation,
-- exposes upgrade functionality to the admin (Owner).
+- exposes upgrade functionality to the admin (DEFAULT_ADMIN_ROLE / UPGRADER_ROLE).
 
 The proxy itself contains:
 - no business logic,
@@ -57,13 +57,13 @@ but only one is active at any given moment.
 
 ## 3. Upgrade Authority
 
-Only the **Owner** may perform upgrades.
+Only accounts with **UPGRADER_ROLE** may perform upgrades.
 
-Owner authority includes:
+Upgrade authority includes:
 - upgrading the implementation address,
 - performing optional initialization calls during upgrade.
 
-Owner authority explicitly does **not** include:
+Upgrade authority explicitly does **not** include:
 - modifying user balances,
 - resolving or finalizing markets,
 - altering market parameters,
@@ -75,7 +75,7 @@ A protocol upgrade consists of:
 
 1. Deploying a new Platform implementation contract.
 2. Verifying storage layout compatibility off-chain.
-3. Calling `upgradeTo` (or `upgradeToAndCall`) on the proxy as Owner.
+3. Calling `upgradeTo` (or `upgradeToAndCall`) on the proxy without `UPGRADER_ROLE`.
 4. Optionally executing a post-upgrade initializer.
 
 Upgrades are atomic at the proxy level.

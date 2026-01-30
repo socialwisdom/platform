@@ -68,13 +68,10 @@ library PlatformStorage {
         // Global protocol fees counter (Points)
         uint128 protocolFeesPoints;
 
-        // --- Roles & Permissions ---
+        // --- Permissions ---
 
         // Fee exemption mapping (UserId => exempt)
         mapping(UserId => bool) feeExempt;
-
-        // Market creator allowlist (UserId => allowed)
-        mapping(UserId => bool) marketCreator;
 
         // Trading view module (delegatecall target)
         address tradingViewModule;

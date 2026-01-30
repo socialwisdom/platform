@@ -15,20 +15,24 @@ import {
 } from "../types/Errors.sol";
 
 library Markets {
-    function createMarket(
-        PlatformStorage.Layout storage s,
-        UserId creatorId,
-        UserId resolverId,
-        uint8 outcomesCount,
-        uint64 expirationAt,
-        bool allowEarlyResolve,
-        uint16 makerFeeBps,
-        uint16 takerFeeBps,
-        uint16 creatorFeeBps,
-        bytes32 questionHash,
-        bytes32 outcomesHash
-    ) internal returns (uint64 marketId) {
-        if (outcomesCount == 0) revert InvalidInput();
+    struct CreateMarketParams {
+        UserId creatorId;
+        UserId resolverId;
+        uint8 outcomesCount;
+        uint64 expirationAt;
+        bool allowEarlyResolve;
+        uint16 makerFeeBps;
+        uint16 takerFeeBps;
+        uint16 creatorFeeBps;
+        bytes32 questionHash;
+        bytes32 outcomesHash;
+    }
+
+    function createMarket(PlatformStorage.Layout storage s, CreateMarketParams memory params)
+        internal
+        returns (uint64 marketId)
+    {
+        if (params.outcomesCount == 0) revert InvalidInput();
 
         uint64 next = s.nextMarketId;
         if (next == 0) next = 1;
@@ -37,16 +41,16 @@ library Markets {
         s.nextMarketId = next + 1;
 
         Market storage m = s.markets[marketId];
-        m.creatorId = uint64(UserId.unwrap(creatorId));
-        m.resolverId = uint64(UserId.unwrap(resolverId));
-        m.outcomesCount = outcomesCount;
-        m.expirationAt = expirationAt;
-        m.allowEarlyResolve = allowEarlyResolve;
-        m.makerFeeBps = makerFeeBps;
-        m.takerFeeBps = takerFeeBps;
-        m.creatorFeeBps = creatorFeeBps;
-        m.questionHash = questionHash;
-        m.outcomesHash = outcomesHash;
+        m.creatorId = uint64(UserId.unwrap(params.creatorId));
+        m.resolverId = uint64(UserId.unwrap(params.resolverId));
+        m.outcomesCount = params.outcomesCount;
+        m.expirationAt = params.expirationAt;
+        m.allowEarlyResolve = params.allowEarlyResolve;
+        m.makerFeeBps = params.makerFeeBps;
+        m.takerFeeBps = params.takerFeeBps;
+        m.creatorFeeBps = params.creatorFeeBps;
+        m.questionHash = params.questionHash;
+        m.outcomesHash = params.outcomesHash;
         // resolved/finalized/winningOutcomeId default to zero values
     }
 

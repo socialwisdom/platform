@@ -34,27 +34,26 @@ abstract contract PlatformMarkets {
         string[] calldata outcomeLabels,
         string calldata resolutionRules
     ) internal returns (uint64 marketId) {
-        if (!_isMarketCreator(creatorId)) revert Unauthorized();
-
         Fees.validateFeeBps(makerFeeBps);
         Fees.validateFeeBps(takerFeeBps);
         if (creatorFeeBps > MAX_CREATOR_FEE_BPS_INTERNAL) {
             revert FeeBpsTooHigh(creatorFeeBps, MAX_CREATOR_FEE_BPS_INTERNAL);
         }
         PlatformStorage.Layout storage s = PlatformStorage.layout();
-        marketId = Markets.createMarket(
-            s,
-            creatorId,
-            resolverId,
-            outcomesCount,
-            expirationAt,
-            allowEarlyResolve,
-            makerFeeBps,
-            takerFeeBps,
-            creatorFeeBps,
-            questionHash,
-            outcomesHash
-        );
+        Markets.CreateMarketParams memory params = Markets.CreateMarketParams({
+            creatorId: creatorId,
+            resolverId: resolverId,
+            outcomesCount: outcomesCount,
+            expirationAt: expirationAt,
+            allowEarlyResolve: allowEarlyResolve,
+            makerFeeBps: makerFeeBps,
+            takerFeeBps: takerFeeBps,
+            creatorFeeBps: creatorFeeBps,
+            questionHash: questionHash,
+            outcomesHash: outcomesHash
+        });
+
+        marketId = Markets.createMarket(s, params);
 
         emit IMarkets.MarketCreated(
             marketId,
@@ -91,12 +90,6 @@ abstract contract PlatformMarkets {
 
         Markets.finalizeMarket(s, marketId, resolveFinalizeDelay);
         emit IMarkets.MarketFinalized(marketId, uint64(block.timestamp));
-    }
-
-    function _setMarketCreator(address account, UserId uid, bool isCreator) internal {
-        PlatformStorage.Layout storage s = PlatformStorage.layout();
-        s.marketCreator[uid] = isCreator;
-        emit IMarkets.MarketCreatorUpdated(account, isCreator);
     }
 
     // ==================== Read API ====================
@@ -147,11 +140,6 @@ abstract contract PlatformMarkets {
 
         Market storage m = s.markets[marketId];
         return uint8(Markets.deriveState(m));
-    }
-
-    function _isMarketCreator(UserId userId) internal view returns (bool) {
-        PlatformStorage.Layout storage s = PlatformStorage.layout();
-        return s.marketCreator[userId];
     }
 
     // ==================== Internal Helpers ====================
