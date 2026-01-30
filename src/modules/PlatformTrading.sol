@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {ITrading} from "../interfaces/ITrading.sol";
 import {PlatformStorage} from "../storage/PlatformStorage.sol";
-import {Market, Order, Level} from "../types/Structs.sol";
+import {Market, Order} from "../types/Structs.sol";
 import {UserId, BookKey, Tick, OrderId} from "../types/IdTypes.sol";
 import {Side, MarketState} from "../types/Enums.sol";
 import {MinFillNotMet, InvalidInput, MarketNotFound, InvalidOutcomeId, MarketNotActive} from "../types/Errors.sol";
@@ -19,6 +19,29 @@ import {Markets} from "../core/Markets.sol";
 
 /// @notice Internal trading and order book logic.
 abstract contract PlatformTrading {
+    struct MatchParams {
+        uint64 marketId;
+        uint8 outcomeId;
+        Side takerSide;
+        Tick limitTick;
+        OrderId placedOrderId;
+        UserId takerUserId;
+        BookKey makerBookKey;
+        Side makerSide;
+    }
+
+    struct MatchFees {
+        uint128 sellerGross;
+        uint128 buyerPaid;
+        uint128 dust;
+        uint128 makerFee;
+        uint128 takerFee;
+        uint16 makerFeeBps;
+        uint16 takerFeeBps;
+        uint16 maxFeeBps;
+        bool makerExempt;
+        bool takerExempt;
+    }
     // ==================== ITrading ====================
 
     // ==================== Write API ====================
@@ -138,77 +161,6 @@ abstract contract PlatformTrading {
         return cancelledShares;
     }
 
-    // ==================== Read API ====================
-
-    function _getCancelCandidates(uint64 marketId, uint8 outcomeId, uint8 side, uint32 targetOrderId, uint256 maxN)
-        internal
-        view
-        returns (uint32[] memory)
-    {
-        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
-
-        uint256 n = maxN > 16 ? 16 : maxN;
-        if (n == 0) return new uint32[](0);
-
-        PlatformStorage.Layout storage s = PlatformStorage.layout();
-        OrderId[] memory candidates = OrderBook.collectPrevCandidates(s, bookKey, OrderId.wrap(targetOrderId), n);
-
-        // Cast result back to uint32[]
-        uint32[] memory result = new uint32[](candidates.length);
-        for (uint256 i = 0; i < candidates.length; i++) {
-            result[i] = OrderId.unwrap(candidates[i]);
-        }
-        return result;
-    }
-
-    function _getOrderRemainingAndRequested(uint64 marketId, uint8 outcomeId, uint8 side, uint32 orderId)
-        internal
-        view
-        returns (uint128 remaining, uint128 requested)
-    {
-        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
-        PlatformStorage.Layout storage s = PlatformStorage.layout();
-        Order storage o = s.orders[Keys.orderKey(bookKey, OrderId.wrap(orderId))];
-        return (o.sharesRemaining, o.requestedShares);
-    }
-
-    function _getBookMask(uint64 marketId, uint8 outcomeId, uint8 side) internal view returns (uint128 mask) {
-        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
-        PlatformStorage.Layout storage s = PlatformStorage.layout();
-
-        return Side(side) == Side.Bid ? s.books[bookKey].bidsMask : s.books[bookKey].asksMask;
-    }
-
-    function _getLevel(uint64 marketId, uint8 outcomeId, uint8 side, uint8 tick)
-        internal
-        view
-        returns (uint32 headOrderId, uint32 tailOrderId, uint128 totalShares)
-    {
-        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
-        PlatformStorage.Layout storage s = PlatformStorage.layout();
-
-        Level storage lvl = s.levels[Keys.levelKey(bookKey, Tick.wrap(tick))];
-        return (lvl.headOrderId, lvl.tailOrderId, lvl.totalShares);
-    }
-
-    function _getOrder(uint64 marketId, uint8 outcomeId, uint8 side, uint32 orderId)
-        internal
-        view
-        returns (uint64 ownerId, uint32 nextOrderId, uint8 tick, uint128 sharesRemaining, uint128 requestedShares)
-    {
-        BookKey bookKey = BookKeyLib.pack(marketId, outcomeId, Side(side));
-        PlatformStorage.Layout storage s = PlatformStorage.layout();
-
-        Order storage o = s.orders[Keys.orderKey(bookKey, OrderId.wrap(orderId))];
-        return (
-            UserId.unwrap(o.ownerId),
-            OrderId.unwrap(o.nextOrderId),
-            Tick.unwrap(o.tick),
-            o.sharesRemaining,
-            o.requestedShares
-        );
-    }
-
     // ==================== Internal Matching Helpers ====================
 
     function _matchOrder(
@@ -230,9 +182,17 @@ abstract contract PlatformTrading {
                 Matching.matchOneStep(s, makerBookKey, makerSide, takerOrderId, limitTick, remaining);
             if (fill.sharesFilled == 0) break;
 
-            uint128 pointsExchanged = _processMatch(
-                marketId, outcomeId, takerSide, limitTick, takerOrderId, takerUserId, makerBookKey, makerSide, fill
-            );
+            MatchParams memory params = MatchParams({
+                marketId: marketId,
+                outcomeId: outcomeId,
+                takerSide: takerSide,
+                limitTick: limitTick,
+                placedOrderId: takerOrderId,
+                takerUserId: takerUserId,
+                makerBookKey: makerBookKey,
+                makerSide: makerSide
+            });
+            uint128 pointsExchanged = _processMatch(params, fill);
 
             totalFilled += fill.sharesFilled;
             totalPointsTraded += pointsExchanged;
@@ -241,34 +201,49 @@ abstract contract PlatformTrading {
         return (totalFilled, totalPointsTraded);
     }
 
-    function _processMatch(
-        uint64 marketId,
-        uint8 outcomeId,
-        Side takerSide,
-        Tick limitTick,
-        OrderId placedOrderId,
-        UserId takerUserId,
-        BookKey makerBookKey,
-        Side makerSide,
-        Matching.FillInfo memory fill
-    ) private returns (uint128 pointsExchanged) {
+    function _processMatch(MatchParams memory params, Matching.FillInfo memory fill)
+        private
+        returns (uint128 pointsExchanged)
+    {
         PlatformStorage.Layout storage s = PlatformStorage.layout();
-        Order storage makerOrder = s.orders[Keys.orderKey(makerBookKey, fill.makerId)];
+        Order storage makerOrder = s.orders[Keys.orderKey(params.makerBookKey, fill.makerId)];
         UserId makerId = makerOrder.ownerId;
 
-        (uint16 makerFeeBps, uint16 takerFeeBps) = _getMarketFeeBps(marketId);
-        uint16 maxFeeBps = makerFeeBps >= takerFeeBps ? makerFeeBps : takerFeeBps;
+        MatchFees memory fees = _computeMatchFees(params.marketId, makerId, params.takerUserId, fill);
+        pointsExchanged = fees.sellerGross;
 
-        bool makerExempt = _isFeeExempt(makerId);
-        bool takerExempt = _isFeeExempt(takerUserId);
+        _accrueDustAndFees(s, params.marketId, fees.dust, fees.makerFee, fees.takerFee);
 
-        // Precompute amounts used by both maker and taker (price math per spec)
-        (uint128 sellerGross, uint128 buyerPaid, uint128 dust) = Fees.computeNotional(fill.sharesFilled, fill.tick);
-        pointsExchanged = sellerGross;
+        BookKey sharesKey = BookKeyLib.pack(params.marketId, params.outcomeId, Side.Ask);
 
-        uint128 makerFee = makerExempt ? 0 : Fees.computeFee(sellerGross, makerFeeBps);
-        uint128 takerFee = takerExempt ? 0 : Fees.computeFee(sellerGross, takerFeeBps);
+        _settleMaker(s, makerId, params.makerSide, params.makerBookKey, sharesKey, fill.sharesFilled, fees);
+        _settleTaker(s, params, sharesKey, fill.sharesFilled, fees);
 
+        emit ITrading.Trade(
+            params.marketId,
+            UserId.unwrap(makerId),
+            UserId.unwrap(params.takerUserId),
+            params.outcomeId,
+            uint8(params.makerSide),
+            OrderId.unwrap(fill.makerId),
+            OrderId.unwrap(params.placedOrderId),
+            Tick.unwrap(fill.tick),
+            fill.sharesFilled,
+            fees.sellerGross,
+            fees.makerFee,
+            fees.takerFee
+        );
+
+        return pointsExchanged;
+    }
+
+    function _accrueDustAndFees(
+        PlatformStorage.Layout storage s,
+        uint64 marketId,
+        uint128 dust,
+        uint128 makerFee,
+        uint128 takerFee
+    ) private {
         if (dust > 0) {
             uint256 newDust = uint256(s.protocolDustPoints) + uint256(dust);
             if (newDust > type(uint128).max) revert InvalidInput();
@@ -285,74 +260,103 @@ abstract contract PlatformTrading {
             // forge-lint: disable-next-line(unsafe-typecast)
             s.markets[marketId].tradingFeesPoints = uint128(newFees);
         }
+    }
 
-        BookKey sharesKey = BookKeyLib.pack(marketId, outcomeId, Side.Ask);
+    function _computeMatchFees(uint64 marketId, UserId makerId, UserId takerUserId, Matching.FillInfo memory fill)
+        private
+        view
+        returns (MatchFees memory fees)
+    {
+        (uint16 makerFeeBps, uint16 takerFeeBps) = _getMarketFeeBps(marketId);
+        uint16 maxFeeBps = makerFeeBps >= takerFeeBps ? makerFeeBps : takerFeeBps;
 
+        bool makerExempt = _isFeeExempt(makerId);
+        bool takerExempt = _isFeeExempt(takerUserId);
+
+        (uint128 sellerGross, uint128 buyerPaid, uint128 dust) = Fees.computeNotional(fill.sharesFilled, fill.tick);
+
+        uint128 makerFee = makerExempt ? 0 : Fees.computeFee(sellerGross, makerFeeBps);
+        uint128 takerFee = takerExempt ? 0 : Fees.computeFee(sellerGross, takerFeeBps);
+
+        fees = MatchFees({
+            sellerGross: sellerGross,
+            buyerPaid: buyerPaid,
+            dust: dust,
+            makerFee: makerFee,
+            takerFee: takerFee,
+            makerFeeBps: makerFeeBps,
+            takerFeeBps: takerFeeBps,
+            maxFeeBps: maxFeeBps,
+            makerExempt: makerExempt,
+            takerExempt: takerExempt
+        });
+    }
+
+    function _settleMaker(
+        PlatformStorage.Layout storage s,
+        UserId makerId,
+        Side makerSide,
+        BookKey makerBookKey,
+        BookKey sharesKey,
+        uint128 sharesFilled,
+        MatchFees memory fees
+    ) private {
         // Maker (Resting) - always settled at execution tick
         if (makerSide == Side.Bid) {
-            Accounting.consumeReservedPoints(s, makerId, buyerPaid + makerFee);
-            Accounting.addFreeShares(s, makerId, sharesKey, fill.sharesFilled);
+            Accounting.consumeReservedPoints(s, makerId, fees.buyerPaid + fees.makerFee);
+            Accounting.addFreeShares(s, makerId, sharesKey, sharesFilled);
 
             // Release excess fee reservation if maxFeeBps > makerFeeBps
-            if (!makerExempt && maxFeeBps > makerFeeBps) {
-                uint128 reservedFee = Fees.computeFee(sellerGross, maxFeeBps);
-                if (reservedFee > makerFee) {
-                    Accounting.releasePoints(s, makerId, reservedFee - makerFee);
+            if (!fees.makerExempt && fees.maxFeeBps > fees.makerFeeBps) {
+                uint128 reservedFee = Fees.computeFee(fees.sellerGross, fees.maxFeeBps);
+                if (reservedFee > fees.makerFee) {
+                    Accounting.releasePoints(s, makerId, reservedFee - fees.makerFee);
                 }
             }
         } else {
-            Accounting.consumeReservedShares(s, makerId, makerBookKey, fill.sharesFilled);
-            Accounting.addFreePoints(s, makerId, sellerGross - makerFee);
+            Accounting.consumeReservedShares(s, makerId, makerBookKey, sharesFilled);
+            Accounting.addFreePoints(s, makerId, fees.sellerGross - fees.makerFee);
         }
+    }
 
+    function _settleTaker(
+        PlatformStorage.Layout storage s,
+        MatchParams memory params,
+        BookKey sharesKey,
+        uint128 sharesFilled,
+        MatchFees memory fees
+    ) private {
         // Taker - logic is identical for limit and market orders
-        if (takerSide == Side.Bid) {
-            Accounting.consumeReservedPoints(s, takerUserId, buyerPaid + takerFee);
+        if (params.takerSide == Side.Bid) {
+            Accounting.consumeReservedPoints(s, params.takerUserId, fees.buyerPaid + fees.takerFee);
 
             // Release principal price improvement from limitTick to execution tick
-            uint128 reservedPrincipal = Fees.computeBuyerPaid(fill.sharesFilled, limitTick);
-            if (reservedPrincipal > buyerPaid) {
-                Accounting.releasePoints(s, takerUserId, reservedPrincipal - buyerPaid);
+            uint128 reservedPrincipal = Fees.computeBuyerPaid(sharesFilled, params.limitTick);
+            if (reservedPrincipal > fees.buyerPaid) {
+                Accounting.releasePoints(s, params.takerUserId, reservedPrincipal - fees.buyerPaid);
             }
 
             // Release excess fee reservation (limit orders reserve maxFeeBps; takes reserve takerFeeBps)
             uint16 reservedFeeBps = 0;
-            if (OrderId.unwrap(placedOrderId) == 0) {
-                reservedFeeBps = takerExempt ? 0 : takerFeeBps;
+            if (OrderId.unwrap(params.placedOrderId) == 0) {
+                reservedFeeBps = fees.takerExempt ? 0 : fees.takerFeeBps;
             } else {
-                reservedFeeBps = takerExempt ? 0 : maxFeeBps;
+                reservedFeeBps = fees.takerExempt ? 0 : fees.maxFeeBps;
             }
             if (reservedFeeBps > 0) {
                 uint128 reservedFee =
-                    Fees.computeFee(Fees.computeSellerGross(fill.sharesFilled, limitTick), reservedFeeBps);
-                if (reservedFee > takerFee) {
-                    Accounting.releasePoints(s, takerUserId, reservedFee - takerFee);
+                    Fees.computeFee(Fees.computeSellerGross(sharesFilled, params.limitTick), reservedFeeBps);
+                if (reservedFee > fees.takerFee) {
+                    Accounting.releasePoints(s, params.takerUserId, reservedFee - fees.takerFee);
                 }
             }
 
-            Accounting.addFreeShares(s, takerUserId, sharesKey, fill.sharesFilled);
+            Accounting.addFreeShares(s, params.takerUserId, sharesKey, sharesFilled);
         } else {
-            BookKey takerBookKey = BookKeyLib.pack(marketId, outcomeId, takerSide);
-            Accounting.consumeReservedShares(s, takerUserId, takerBookKey, fill.sharesFilled);
-            Accounting.addFreePoints(s, takerUserId, sellerGross - takerFee);
+            BookKey takerBookKey = BookKeyLib.pack(params.marketId, params.outcomeId, params.takerSide);
+            Accounting.consumeReservedShares(s, params.takerUserId, takerBookKey, sharesFilled);
+            Accounting.addFreePoints(s, params.takerUserId, fees.sellerGross - fees.takerFee);
         }
-
-        emit ITrading.Trade(
-            marketId,
-            UserId.unwrap(makerId),
-            UserId.unwrap(takerUserId),
-            outcomeId,
-            uint8(makerSide),
-            OrderId.unwrap(fill.makerId),
-            OrderId.unwrap(placedOrderId),
-            Tick.unwrap(fill.tick),
-            fill.sharesFilled,
-            sellerGross,
-            makerFee,
-            takerFee
-        );
-
-        return pointsExchanged;
     }
 
     // ==================== Internal Checks & Registry ====================

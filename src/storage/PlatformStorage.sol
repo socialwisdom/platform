@@ -76,6 +76,9 @@ library PlatformStorage {
         // Market creator allowlist (UserId => allowed)
         mapping(UserId => bool) marketCreator;
 
+        // Trading view module (delegatecall target)
+        address tradingViewModule;
+
         // --- Upgrade tracking ---
         uint8 protocolVersion;
         // (Append new storage below this line in future iterations.)

@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {Platform} from "../src/Platform.sol";
 import {PlatformStorage} from "../src/storage/PlatformStorage.sol";
+import {PlatformTradingViewModule} from "../src/modules/PlatformTradingViewModule.sol";
 import {DeployPlatform} from "../script/lib/DeployPlatform.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -25,8 +26,10 @@ contract UpgradeTest is Test {
     }
 
     function test_Initialize_RevertsOnSecondCall() public {
+        address newTradingViewModule = address(new PlatformTradingViewModule());
+
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        platform.initialize(owner);
+        platform.initialize(owner, newTradingViewModule);
     }
 
     function test_UpgradeAndReinitialize() public {
